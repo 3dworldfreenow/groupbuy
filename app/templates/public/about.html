@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <h1 class="h2">About {{ app_name }}</h1>
+  <p class="lead text-muted">We help neighbours buy fresh vegetables and fruit together, so households get bulk quality and suppliers get reliable, consolidated demand.</p>
+  <h2 class="h5 mt-4">Our approach</h2>
+  <ul>
+    <li><strong>Transparent pricing.</strong> Every order shows produce, delivery and fee components separately.</li>
+    <li><strong>Fair competition.</strong> Offers are sealed until the deadline and scored with a published policy where price is only one factor.</li>
+    <li><strong>Quality as a process.</strong> Grades, batch records, inspections, delivery condition and complaints are all recorded.</li>
+    <li><strong>Honest labelling.</strong> We distinguish vendor-declared information from platform-verified information and never make organic or pesticide-free claims without evidence.</li>
+  </ul>
+  <h2 class="h5 mt-4">Two stages</h2>
+  <p>We start by operating the first vendor ourselves — sourcing, checking, packing and coordinating delivery. As the community grows, verified external vendors compete for group orders under exactly the same rules. Our own vendor account is always disclosed as platform-owned.</p>
+  <a class="btn btn-primary" href="{{ url_for('public.how_it_works') }}">See how it works</a>
+</div></div>
+{% endblock %}

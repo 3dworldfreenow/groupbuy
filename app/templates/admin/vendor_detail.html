@@ -1,0 +1,89 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}{{ v.business_name }}{% endblock %}
+{% block admin_content %}
+<a href="{{ url_for('admin.vendors') }}" class="small">&larr; Vendors</a>
+<div class="d-flex flex-wrap align-items-center gap-2 my-2">
+  <h1 class="h3 mb-0">{{ v.business_name }}</h1> {{ ui.status(v.status) }} {{ ui.platform_badge(v.is_platform_owned) }}
+</div>
+{% if v.is_platform_owned %}<div class="alert disclosure small">This is the founder-operated vendor. It must follow the same published rules, pricing, quality checks and award policy as external vendors; its bids are sealed from administrators during bidding.</div>{% endif %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card mb-3"><div class="card-header">Business profile (vendor-declared)</div><div class="card-body">
+      <dl class="row mb-0 small">
+        <dt class="col-sm-4">Account</dt><dd class="col-sm-8"><a href="{{ url_for('admin.user_detail', user_id=v.user_id) }}">{{ v.user.full_name }}</a> · {{ v.user.email }}</dd>
+        <dt class="col-sm-4">Legal name</dt><dd class="col-sm-8">{{ v.legal_name or '—' }}</dd>
+        <dt class="col-sm-4">Registration no.</dt><dd class="col-sm-8">{{ v.registration_number or '—' }}</dd>
+        <dt class="col-sm-4">Tax ID</dt><dd class="col-sm-8">{{ v.tax_id or '—' }}</dd>
+        <dt class="col-sm-4">Food licence</dt><dd class="col-sm-8">{{ v.food_licence_number or '—' }}</dd>
+        <dt class="col-sm-4">Phone</dt><dd class="col-sm-8">{{ v.contact_phone }}</dd>
+        <dt class="col-sm-4">Address</dt><dd class="col-sm-8">{{ v.business_address }}</dd>
+        <dt class="col-sm-4">Capacity / order</dt><dd class="col-sm-8">{{ v.capacity_per_order|qty if v.capacity_per_order else 'Not declared' }}</dd>
+        <dt class="col-sm-4">Description</dt><dd class="col-sm-8">{{ v.description or '—' }}</dd>
+        <dt class="col-sm-4">Approved</dt><dd class="col-sm-8">{{ v.approved_at|localdt }}</dd>
+        {% if v.status_reason %}<dt class="col-sm-4">Status reason</dt><dd class="col-sm-8">{{ v.status_reason }}</dd>{% endif %}
+      </dl>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Verification documents</div>
+      <div class="table-responsive"><table class="table mb-0"><thead><tr><th>Type</th><th>File</th><th>Status</th><th>Review</th></tr></thead><tbody>
+      {% for d in v.documents %}
+        <tr>
+          <td class="small">{{ doc_types.get(d.doc_type, d.doc_type) }}<div class="text-muted">{{ d.uploaded_at|localdt }}</div></td>
+          <td class="small"><a href="{{ url_for('files.vendor_document', doc_id=d.id) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark"></i> {{ d.original_filename }}</a></td>
+          <td>{{ ui.status(d.status) }}{% if d.review_notes %}<div class="small text-muted">{{ d.review_notes }}</div>{% endif %}</td>
+          <td>
+            <form method="post" action="{{ url_for('admin.review_document', doc_id=d.id) }}" class="d-flex flex-column gap-1">{{ ui.csrf() }}
+              <input class="form-control form-control-sm" name="notes" placeholder="Notes (required to reject)" maxlength="500">
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" name="status" value="verified" type="submit">Verify</button>
+                <button class="btn btn-outline-danger" name="status" value="rejected" type="submit">Reject</button>
+              </div>
+            </form>
+          </td>
+        </tr>
+      {% else %}<tr><td colspan="4">{{ ui.empty('file-earmark', 'No documents uploaded yet') }}</td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-header">Status</div><div class="card-body">
+      {% if transitions %}
+      <form method="post" data-confirm="Change this vendor's status?">{{ ui.csrf() }}
+        <input type="hidden" name="action" value="status">
+        <div class="mb-2"><label class="form-label">New status</label>
+          <select class="form-select" name="status">{% for t in transitions|sort %}<option value="{{ t }}">{{ t|status_label }}</option>{% endfor %}</select></div>
+        <div class="mb-2"><label class="form-label">Reason</label><textarea class="form-control" name="reason" rows="2" maxlength="500" placeholder="Required for rejection or suspension"></textarea></div>
+        <button class="btn btn-primary" type="submit">Update status</button>
+      </form>
+      {% else %}<p class="text-muted mb-0">No status changes available.</p>{% endif %}
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Commission & service areas</div><div class="card-body">
+      <form method="post">{{ ui.csrf() }}<input type="hidden" name="action" value="settings">
+        <div class="mb-2"><label class="form-label">Commission override (%)</label>
+          <input class="form-control" type="number" step="0.01" min="0" max="50" name="commission_rate_override" value="{{ v.commission_rate_override if v.commission_rate_override is not none else '' }}" placeholder="Platform default">
+          <div class="form-text">Leave empty to use the platform rate. Overrides are audit-logged.</div></div>
+        <div class="mb-2"><label class="form-label d-block">Service areas <span class="text-muted small">(none = all)</span></label>
+          {% set area_ids = v.service_areas|map(attribute='id')|list %}
+          {% for l in locations %}<div class="form-check"><input class="form-check-input" type="checkbox" name="service_areas" value="{{ l.id }}" id="sa{{ l.id }}" {% if l.id in area_ids %}checked{% endif %}><label class="form-check-label" for="sa{{ l.id }}">{{ l.label }}</label></div>{% endfor %}
+        </div>
+        <button class="btn btn-outline-primary" type="submit">Save settings</button>
+      </form>
+    </div></div>
+
+    <div class="card"><div class="card-header">Performance</div><div class="card-body small">
+      <div class="mb-2">Quality score: <strong>{{ score }}</strong>/100</div>
+      <dl class="row mb-0">
+        <dt class="col-7">Awards</dt><dd class="col-5">{{ history.awards }}</dd>
+        <dt class="col-7">Declined awards</dt><dd class="col-5">{{ history.cancellations }}</dd>
+        <dt class="col-7">Deliveries</dt><dd class="col-5">{{ history.deliveries }}</dd>
+        <dt class="col-7">On-time rate</dt><dd class="col-5">{{ (history.on_time_rate * 100)|pct(0) if history.on_time_rate is not none else '—' }}</dd>
+        <dt class="col-7">Platform inspections</dt><dd class="col-5">{{ history.inspections }} ({{ (history.inspection_pass_rate * 100)|pct(0) if history.inspection_pass_rate is not none else '—' }} pass)</dd>
+        <dt class="col-7">Avg rating</dt><dd class="col-5">{{ history.avg_rating if history.avg_rating is not none else '—' }} ({{ history.rating_count }})</dd>
+        <dt class="col-7">Complaints</dt><dd class="col-5">{{ history.complaints }}</dd>
+      </dl>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

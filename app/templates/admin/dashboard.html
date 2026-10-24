@@ -1,0 +1,70 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Admin dashboard{% endblock %}
+{% block admin_content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0">Admin dashboard</h1>
+  <a href="{{ url_for('admin.settings') }}" class="text-decoration-none">
+    {% if multi_vendor %}<span class="badge text-bg-primary">Stage 2 · Multi-vendor bidding enabled</span>
+    {% else %}<span class="badge text-bg-warning">Stage 1 · Founder vendor only</span>{% endif %}
+  </a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">{{ ui.stat('Registered customers', m.customers, 'people') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Approved vendors', m.vendors_approved, 'shop', m.vendors_pending ~ ' pending') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Active buying groups', m.active_groups, 'people-fill') }}</div>
+  <div class="col-6 col-xl-3">
+    {% set demand %}{% for unit, q in m.aggregate_demand.items() %}{{ q|qty }} {{ unit }}{% if not loop.last %}, {% endif %}{% else %}0{% endfor %}{% endset %}
+    {{ ui.stat('Open aggregate demand', demand, 'bar-chart') }}
+  </div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Completed order value (not revenue)', m.fin.gmv|money, 'receipt') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Platform revenue', m.fin.platform_revenue|money, 'cash-coin', 'Commissions ' ~ (m.fin.commissions|money) ~ ' · Service fees ' ~ (m.fin.service_fees|money)) }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Vendor purchase costs (founder)', m.fin.costs.purchase|money, 'cart') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Delivery expenses', m.fin.costs.delivery|money, 'truck') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Spoilage and refunds', (m.fin.costs.spoilage + m.fin.refunds_total)|money, 'arrow-counterclockwise', 'Spoilage ' ~ (m.fin.costs.spoilage|money) ~ ' · Refunds ' ~ (m.fin.refunds_total|money)) }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Estimated gross margin', m.fin.gross_margin|money, 'graph-up') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Estimated operating profit', m.fin.operating_profit|money, 'piggy-bank') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('On-time delivery rate', m.on_time_rate|pct(1) if m.on_time_rate is not none else '—', 'clock') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Repeat customer rate', m.repeat_rate|pct(1) if m.repeat_rate is not none else '—', 'arrow-repeat') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Complaint rate', m.complaint_rate|pct(1) if m.complaint_rate is not none else '—', 'exclamation-circle', m.complaints ~ ' complaints / ' ~ m.delivered_orders ~ ' delivered orders') }}</div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Needs attention</div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('admin.vendors', status='pending') }}">Vendors awaiting approval</a><span class="badge text-bg-{{ 'warning' if attention.pending_vendors else 'secondary' }}">{{ attention.pending_vendors }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('admin.vendors') }}">Documents to review</a><span class="badge text-bg-{{ 'warning' if attention.pending_docs else 'secondary' }}">{{ attention.pending_docs }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('admin.quality') }}">Orders awaiting quality check</a><span class="badge text-bg-{{ 'warning' if attention.quality_check else 'secondary' }}">{{ attention.quality_check }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('admin.group_orders', status='on_hold') }}">Orders on hold</a><span class="badge text-bg-{{ 'danger' if attention.on_hold else 'secondary' }}">{{ attention.on_hold }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('admin.complaints') }}">Open complaints</a><span class="badge text-bg-{{ 'danger' if attention.open_complaints else 'secondary' }}">{{ attention.open_complaints }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('admin.group_orders', status='delivered') }}">Delivered orders to close</a><span class="badge text-bg-{{ 'info' if attention.to_close else 'secondary' }}">{{ attention.to_close }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Confirmed orders with unpaid balance</span><span class="badge text-bg-{{ 'warning' if attention.unpaid else 'secondary' }}">{{ attention.unpaid }}</span></li>
+        <li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('admin.messages') }}">Unhandled contact messages</a><span class="badge text-bg-{{ 'info' if attention.messages else 'secondary' }}">{{ attention.messages }}</span></li>
+        {% for go in attention.selection_no_bids %}
+        <li class="list-group-item"><i class="bi bi-exclamation-triangle text-danger"></i> <a href="{{ url_for('admin.group_order', go_id=go.id) }}">#{{ go.id }} {{ go.title }}</a> has no eligible offers — reopen bidding or cancel.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">Recently updated group orders <a href="{{ url_for('admin.group_orders') }}" class="small">All</a></div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead><tr><th>#</th><th>Order</th><th>Status</th><th>Updated</th></tr></thead>
+          <tbody>
+          {% for go in recent %}
+            <tr><td>{{ go.id }}</td><td><a href="{{ url_for('admin.group_order', go_id=go.id) }}">{{ go.title }}</a><div class="small text-muted">{{ go.group.name }}</div></td><td>{{ ui.status(go.status) }}</td><td class="small">{{ go.updated_at|localdt }}</td></tr>
+          {% else %}
+            <tr><td colspan="4">{{ ui.empty('box-seam', 'No group orders yet') }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

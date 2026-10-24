@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Report a problem{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb small">
+      <li class="breadcrumb-item"><a href="{{ url_for('customer.order_detail', order_id=co.id) }}">{{ co.reference }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Report a problem</li>
+    </ol></nav>
+    <h1 class="h3">Report a problem</h1>
+    <p class="text-muted">Tell us about shortages, damage or quality issues. Photos help us resolve complaints quickly.</p>
+    <div class="card"><div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {{ ui.csrf() }}
+        <div class="mb-3">
+          <label class="form-label" for="complaint_type">Problem type</label>
+          <select class="form-select" id="complaint_type" name="complaint_type" required>
+            {% for key, label in COMPLAINT_TYPES.items() %}<option value="{{ key }}" {% if request.form.get('complaint_type') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="row">
+          <div class="col-md-7 mb-3">
+            <label class="form-label" for="product_id">Product (optional)</label>
+            <select class="form-select" id="product_id" name="product_id">
+              <option value="">Whole order</option>
+              {% for it in co.items %}<option value="{{ it.product_id }}">{{ it.product.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-5 mb-3">
+            <label class="form-label" for="quantity_affected">Quantity affected (optional)</label>
+            <input class="form-control" type="number" min="0" step="0.001" id="quantity_affected" name="quantity_affected" value="{{ request.form.get('quantity_affected', '') }}">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="description">What happened?</label>
+          <textarea class="form-control" id="description" name="description" rows="5" minlength="10" maxlength="5000" required>{{ request.form.get('description', '') }}</textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="photos">Photos (optional, up to 6)</label>
+          <input class="form-control" type="file" id="photos" name="photos" multiple accept="image/jpeg,image/png,image/webp">
+          <div class="form-text">JPEG, PNG or WebP. Photos are private: only you, the vendor and platform staff can see them.</div>
+        </div>
+        <button class="btn btn-primary" type="submit" data-loading-text="Submitting…">Submit complaint</button>
+        <a class="btn btn-link" href="{{ url_for('customer.order_detail', order_id=co.id) }}">Cancel</a>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

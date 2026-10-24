@@ -1,0 +1,21 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Delivery management{% endblock %}
+{% block vendor_content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Delivery management</h1>
+  <form method="get" class="d-flex gap-2" data-no-loading>
+    <select class="form-select form-select-sm" name="status">
+      <option value="">All statuses</option>
+      {% for k, label in statuses.items() %}<option value="{{ k }}" {{ 'selected' if status == k }}>{{ label }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-sm btn-outline-primary" type="submit">Filter</button>
+  </form>
+</div>
+<p class="small text-muted">Deliveries are coordinated manually (your own staff or driver). Record proof of delivery for every drop-off; failed attempts can be rescheduled or marked not delivered.</p>
+{% if deliveries %}
+<div class="card">{% include "vendor/_deliveries_table.html" %}</div>
+{% else %}
+  {% call ui.empty('truck', 'No deliveries', 'Deliveries are created when you mark an awarded order as packed.') %}{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Users{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">User management</h1>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-sm-6"><input class="form-control" name="q" value="{{ q }}" placeholder="Search name or email"></div>
+  <div class="col-sm-3"><select class="form-select" name="role"><option value="">All roles</option>{% for r in roles %}<option value="{{ r }}" {% if r == role %}selected{% endif %}>{{ r|capitalize }}</option>{% endfor %}</select></div>
+  <div class="col-sm-3"><button class="btn btn-outline-primary w-100" type="submit" data-no-loading>Filter</button></div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table mb-0">
+  <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th>Last login</th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td><a href="{{ url_for('admin.user_detail', user_id=u.id) }}">{{ u.full_name }}</a></td>
+      <td class="small">{{ u.email }}</td>
+      <td>{% for r in u.role_names|sort %}<span class="badge badge-soft me-1">{{ r }}</span>{% endfor %}{% if u.vendor_profile and u.vendor_profile.is_platform_owned %}{{ ui.platform_badge(True) }}{% endif %}</td>
+      <td>{% if u.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}{% if u.locked_until and u.locked_until > now_utc %} <span class="badge text-bg-danger">Locked</span>{% endif %}</td>
+      <td class="small">{{ u.last_login_at|localdt }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5">{{ ui.empty('people', 'No users match') }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

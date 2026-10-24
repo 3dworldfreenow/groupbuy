@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Vendor registration{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4 mb-1">Apply to become a vendor</h1>
+    <p class="text-muted small">After you apply, upload verification documents. An administrator reviews every application. Until you are approved you can prepare your catalogue, but you cannot bid on live orders.</p>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      {% if form.full_name %}
+      <h2 class="h6 mt-3">Your account</h2>
+      {{ ui.field(form.full_name) }}
+      <div class="row">
+        {{ ui.field(form.email, cls="col-md-6") }}
+        {{ ui.field(form.phone, cls="col-md-6") }}
+      </div>
+      <div class="row">
+        {{ ui.field(form.password, "At least 10 characters, mixing letters with numbers or symbols.", cls="col-md-6") }}
+        {{ ui.field(form.confirm, cls="col-md-6") }}
+      </div>
+      {% else %}
+      <p class="small">Applying as <strong>{{ current_user.email }}</strong>.</p>
+      {{ ui.field(form.phone, "Business contact phone") }}
+      {% endif %}
+      <h2 class="h6 mt-3">Your business</h2>
+      {{ ui.field(form.business_name) }}
+      {{ ui.field(form.business_address) }}
+      {{ ui.field(form.capacity_per_order, "Maximum total quantity (in product units, e.g. kg) you can supply for one group order.") }}
+      {{ ui.field(form.description) }}
+      <div class="form-check mb-3">
+        {{ form.accept_terms(class_="form-check-input" + (" is-invalid" if form.accept_terms.errors else "")) }}
+        <label class="form-check-label" for="accept_terms">I accept the <a href="{{ url_for('public.terms') }}" target="_blank">Terms of Service</a>, including the vendor obligations</label>
+        {% for e in form.accept_terms.errors %}<div class="invalid-feedback d-block">You must accept the terms.</div>{% endfor %}
+      </div>
+      <button class="btn btn-primary" type="submit" data-loading-text="Submitting…">Submit application</button>
+    </form>
+  </div></div>
+</div></div>
+{% endblock %}

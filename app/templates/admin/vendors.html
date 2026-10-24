@@ -1,0 +1,23 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Vendors{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Vendor approval</h1>
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item"><a class="nav-link {% if not status %}active{% endif %}" href="{{ url_for('admin.vendors') }}">All</a></li>
+  {% for s in statuses %}<li class="nav-item"><a class="nav-link {% if s == status %}active{% endif %}" href="{{ url_for('admin.vendors', status=s) }}">{{ s|status_label }}</a></li>{% endfor %}
+</ul>
+<div class="card"><div class="table-responsive">
+<table class="table mb-0"><thead><tr><th>Business</th><th>Contact</th><th>Status</th><th>Documents</th><th>Capacity / order</th><th>Applied</th></tr></thead><tbody>
+{% for v in vendors %}
+<tr>
+  <td><a href="{{ url_for('admin.vendor_detail', vendor_id=v.id) }}">{{ v.business_name }}</a> {{ ui.platform_badge(v.is_platform_owned) }}</td>
+  <td class="small">{{ v.user.email }}<br>{{ v.contact_phone }}</td>
+  <td>{{ ui.status(v.status) }}</td>
+  <td class="small">{{ v.documents|length }} ({{ v.documents|selectattr('status','equalto','verified')|list|length }} verified)</td>
+  <td>{{ v.capacity_per_order|qty if v.capacity_per_order else '—' }}</td>
+  <td class="small">{{ v.created_at|localdt }}</td>
+</tr>
+{% else %}<tr><td colspan="6">{{ ui.empty('shop', 'No vendors in this list') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

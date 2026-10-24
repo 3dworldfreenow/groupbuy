@@ -1,0 +1,31 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Complaints{% endblock %}
+{% block vendor_content %}
+<h1 class="h3 mb-1">Customer complaints</h1>
+<p class="text-muted">Respond with facts and any corrective action. Refunds and replacements are decided by the platform after reviewing both sides.</p>
+{% for c in complaints %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>#{{ c.id }} · {{ COMPLAINT_TYPES.get(c.complaint_type, c.complaint_type) }} · {{ c.customer_order.reference }}</span>
+    {{ ui.status(c.status) }}
+  </div>
+  <div class="card-body">
+    <div class="small text-muted mb-1">{{ c.created_at|localdt }}{% if c.product %} · {{ c.product.name }}{% endif %}{% if c.quantity_affected %} · {{ c.quantity_affected|qty }} affected{% endif %}</div>
+    <p class="mb-2">{{ c.description }}</p>
+    {{ ui.photos(photos[c.id]) }}
+    {% if c.vendor_response %}<div class="mt-2 p-2 bg-light rounded small"><strong>Your response</strong> ({{ c.vendor_responded_at|localdt }}): {{ c.vendor_response }}</div>{% endif %}
+    {% if c.resolution %}<div class="mt-2 small"><strong>Platform resolution:</strong> {{ c.resolution|replace('_', ' ') }}{% if c.resolution_notes %} — {{ c.resolution_notes }}{% endif %}</div>{% endif %}
+    {% if c.status in unresolved %}
+    <form method="post" action="{{ url_for('vendor.respond', complaint_id=c.id) }}" class="mt-2">
+      {{ ui.csrf() }}
+      <textarea class="form-control mb-2" name="response" rows="2" required minlength="5" placeholder="Your response">{{ c.vendor_response or '' }}</textarea>
+      <button class="btn btn-sm btn-primary" type="submit">{{ 'Update response' if c.vendor_response else 'Send response' }}</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+  {% call ui.empty('emoji-smile', 'No complaints', 'Complaints about your deliveries will appear here.') %}{% endcall %}
+{% endfor %}
+{% endblock %}

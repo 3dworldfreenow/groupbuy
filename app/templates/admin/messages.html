@@ -1,0 +1,18 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Messages{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Contact messages</h1>
+<div class="list-group">
+{% for msg in messages %}
+  <div class="list-group-item {% if msg.is_handled %}text-muted{% endif %}">
+    <div class="d-flex justify-content-between flex-wrap gap-2">
+      <div><strong>{{ msg.subject }}</strong> <span class="small">· {{ msg.name }} &lt;{{ msg.email }}&gt; · {{ msg.created_at|localdt }}</span></div>
+      {% if msg.is_handled %}<span class="badge text-bg-secondary">Handled</span>
+      {% else %}<form method="post">{{ ui.csrf() }}<input type="hidden" name="id" value="{{ msg.id }}"><button class="btn btn-sm btn-outline-primary" type="submit">Mark handled</button></form>{% endif %}
+    </div>
+    <p class="mb-0 mt-1 small" style="white-space: pre-line">{{ msg.message }}</p>
+  </div>
+{% else %}{{ ui.empty('envelope', 'No messages yet') }}{% endfor %}
+</div>
+{% endblock %}

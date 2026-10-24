@@ -1,0 +1,42 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}{{ user.full_name }}{% endblock %}
+{% macro act(value, label, cls, confirm) -%}
+<form method="post" class="d-inline" data-confirm="{{ confirm }}">{{ ui.csrf() }}<input type="hidden" name="action" value="{{ value }}"><button class="btn btn-sm {{ cls }}" type="submit">{{ label }}</button></form>
+{%- endmacro %}
+{% block admin_content %}
+<a href="{{ url_for('admin.users') }}" class="small">&larr; Users</a>
+<h1 class="h3 my-2">{{ user.full_name }}</h1>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-4">Email</dt><dd class="col-sm-8">{{ user.email }}</dd>
+        <dt class="col-sm-4">Phone</dt><dd class="col-sm-8">{{ user.phone or '—' }}</dd>
+        <dt class="col-sm-4">Roles</dt><dd class="col-sm-8">{% for r in user.role_names|sort %}<span class="badge badge-soft me-1">{{ r }}</span>{% else %}—{% endfor %}</dd>
+        <dt class="col-sm-4">Status</dt><dd class="col-sm-8">{% if user.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}{% if user.locked_until and user.locked_until > now_utc %} <span class="badge text-bg-danger">Locked until {{ user.locked_until|localdt }}</span>{% endif %}</dd>
+        <dt class="col-sm-4">Joined</dt><dd class="col-sm-8">{{ user.created_at|localdt }}</dd>
+        <dt class="col-sm-4">Last login</dt><dd class="col-sm-8">{{ user.last_login_at|localdt }}</dd>
+        {% if user.vendor_profile %}<dt class="col-sm-4">Vendor</dt><dd class="col-sm-8"><a href="{{ url_for('admin.vendor_detail', vendor_id=user.vendor_profile.id) }}">{{ user.vendor_profile.business_name }}</a> {{ ui.status(user.vendor_profile.status) }}</dd>{% endif %}
+      </dl>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Account actions</div><div class="card-body d-flex flex-wrap gap-2">
+      {% if user.is_active %}{{ act('deactivate', 'Deactivate account', 'btn-outline-danger', 'Deactivate this account? The user will be unable to log in.') }}
+      {% else %}{{ act('activate', 'Reactivate account', 'btn-outline-primary', 'Reactivate this account?') }}{% endif %}
+      {% if user.locked_until %}{{ act('unlock', 'Unlock login', 'btn-outline-secondary', 'Clear the login lock?') }}{% endif %}
+      {% if user.has_role('admin') %}{{ act('revoke_admin', 'Revoke admin role', 'btn-outline-danger', 'Revoke administrator access?') }}
+      {% else %}{{ act('grant_admin', 'Grant admin role', 'btn-outline-warning', 'Grant full administrator access to this user?') }}{% endif %}
+      {% if user.has_role('customer') %}{{ act('revoke_customer', 'Revoke customer role', 'btn-outline-secondary', 'Revoke customer role?') }}
+      {% else %}{{ act('grant_customer', 'Grant customer role', 'btn-outline-primary', 'Grant customer role?') }}{% endif %}
+    </div><div class="card-footer small text-muted">All changes are recorded in the audit log.</div></div>
+  </div>
+</div>
+<div class="card mt-3"><div class="card-header">Recent orders</div><div class="table-responsive">
+<table class="table mb-0"><thead><tr><th>Reference</th><th>Group order</th><th>Status</th><th>Total</th><th>Payment</th></tr></thead><tbody>
+{% for co in orders %}
+<tr><td>{{ co.reference }}</td><td><a href="{{ url_for('admin.group_order', go_id=co.group_order_id) }}">{{ co.group_order.title }}</a></td><td>{{ ui.status(co.status) }}</td><td class="money">{{ co.total|money(co.currency) }}</td><td>{{ ui.status(co.payment_status) }}</td></tr>
+{% else %}<tr><td colspan="5">{{ ui.empty('receipt', 'No orders') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

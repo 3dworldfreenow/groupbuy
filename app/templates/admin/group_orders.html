@@ -1,0 +1,24 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Group orders{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Group order management</h1>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-sm-6 col-md-4"><select class="form-select" name="status"><option value="">All statuses</option>{% for k, label in statuses.items() %}<option value="{{ k }}" {% if k == status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><button class="btn btn-outline-primary" type="submit" data-no-loading>Filter</button></div>
+</form>
+<div class="card"><div class="table-responsive"><table class="table mb-0">
+<thead><tr><th>#</th><th>Order</th><th>Status</th><th>Order deadline</th><th>Delivery window</th><th>Customers</th><th>Award policy</th></tr></thead><tbody>
+{% for go in orders %}
+<tr>
+  <td>{{ go.id }}</td>
+  <td><a href="{{ url_for('admin.group_order', go_id=go.id) }}">{{ go.title }}</a><div class="small text-muted">{{ go.group.name }} · {{ go.group.location.label }}</div></td>
+  <td>{{ ui.status(go.status) }}</td>
+  <td class="small">{{ go.order_deadline|localdt }}</td>
+  <td class="small">{{ go.delivery_window_start|localdt }}</td>
+  <td>{{ go.live_customer_orders|length }}</td>
+  <td class="small">{{ go.selection_mode|status_label }}</td>
+</tr>
+{% else %}<tr><td colspan="7">{{ ui.empty('box-seam', 'No group orders match') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

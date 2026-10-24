@@ -1,0 +1,31 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Deliveries{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Delivery management</h1>
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item"><a class="nav-link {% if not status %}active{% endif %}" href="{{ url_for('admin.deliveries') }}">All</a></li>
+  {% for k, l in statuses.items() %}<li class="nav-item"><a class="nav-link {% if k == status %}active{% endif %}" href="{{ url_for('admin.deliveries', status=k) }}">{{ l }}</a></li>{% endfor %}
+</ul>
+<div class="card"><div class="table-responsive"><table class="table mb-0">
+<thead><tr><th>Order</th><th>Vendor</th><th>Method / destination</th><th>Window</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for d in deliveries %}
+<tr>
+  <td>{{ d.customer_order.reference }}<div class="small text-muted"><a href="{{ url_for('admin.group_order', go_id=d.group_order_id) }}">#{{ d.group_order_id }}</a> · {{ d.customer_order.user.full_name }}</div></td>
+  <td class="small">{{ d.vendor.business_name }}</td>
+  <td class="small">{{ d.method|status_label }}<div class="text-muted">{{ d.address_text or '—' }}</div></td>
+  <td class="small">{{ d.window_start|localdt }}</td>
+  <td>{{ ui.status(d.status) }}<div class="small text-muted">{% if d.assigned_to %}{{ d.assigned_to }} · {% endif %}attempts {{ d.attempts }}{% if d.failure_reason %} · {{ d.failure_reason }}{% endif %}{% if d.delivered_at %} · {{ d.delivered_at|localdt }}{% endif %}</div></td>
+  <td style="min-width:220px">
+    {% if d.status == 'dispatched' %}
+      <form method="post" action="{{ url_for('admin.delivery_action', delivery_id=d.id, action='delivered') }}" class="input-group input-group-sm mb-1">{{ ui.csrf() }}<input class="form-control" name="received_by" placeholder="Received by"><input type="hidden" name="proof_notes" value="Confirmed by administrator"><button class="btn btn-outline-success" type="submit">Delivered</button></form>
+      <form method="post" action="{{ url_for('admin.delivery_action', delivery_id=d.id, action='failed') }}" class="input-group input-group-sm">{{ ui.csrf() }}<input class="form-control" name="reason" placeholder="Failure reason" required><button class="btn btn-outline-danger" type="submit">Failed</button></form>
+    {% elif d.status == 'failed' %}
+      <form method="post" action="{{ url_for('admin.delivery_action', delivery_id=d.id, action='reschedule') }}" class="input-group input-group-sm mb-1">{{ ui.csrf() }}<input class="form-control" name="assigned_to" placeholder="Assign to"><button class="btn btn-outline-primary" type="submit">Reschedule</button></form>
+      <form method="post" action="{{ url_for('admin.delivery_action', delivery_id=d.id, action='returned') }}" class="input-group input-group-sm" data-confirm="Mark as not delivered? The customer order will be cancelled and needs a refund.">{{ ui.csrf() }}<input class="form-control" name="reason" placeholder="Reason"><button class="btn btn-outline-danger" type="submit">Not delivered</button></form>
+    {% else %}<span class="small text-muted">No action needed</span>{% endif %}
+  </td>
+</tr>
+{% else %}<tr><td colspan="6">{{ ui.empty('truck', 'No deliveries in this list') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

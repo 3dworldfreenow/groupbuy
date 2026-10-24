@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Create a buying group{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h1 class="h3">Create a buying group</h1>
+    <p class="text-muted">You become the organiser. Next you'll add products and target quantities, then share the invite link.</p>
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="card mb-3">
+        <div class="card-header">1. Group details</div>
+        <div class="card-body">
+          {{ ui.field(form.name) }}
+          {{ ui.field(form.description) }}
+          <div class="row">
+            {{ ui.field(form.location_id, cls="col-md-6") }}
+            {{ ui.field(form.pickup_point_id, "Required for community pickup. Must be in the same location.", cls="col-md-6") }}
+          </div>
+          {{ ui.field(form.is_public) }}
+        </div>
+      </div>
+      <div class="card mb-3">
+        <div class="card-header">2. First order round</div>
+        <div class="card-body">{% include "customer/_round_fields.html" %}</div>
+      </div>
+      <button class="btn btn-primary btn-lg" type="submit" data-loading-text="Creating…">Create group</button>
+      <a class="btn btn-link" href="{{ url_for('customer.dashboard') }}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

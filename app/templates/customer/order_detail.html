@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Order {{ co.reference }}{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('customer.orders') }}">My orders</a></li>
+  <li class="breadcrumb-item active" aria-current="page">{{ co.reference }}</li>
+</ol></nav>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+  <div>
+    <h1 class="h3 mb-0">Order {{ co.reference }}</h1>
+    <div class="text-muted small"><a href="{{ url_for('customer.group_order', go_id=go.id) }}">{{ go.title }}</a> · {{ go.group.name }}</div>
+  </div>
+  <div class="d-flex gap-2">{{ ui.status(co.status, co.status_label) }} {{ ui.status(co.payment_status) }}</div>
+</div>
+<div class="mb-3">{{ ui.timeline(go) }}</div>
+{% if co.status == 'cancelled' %}<div class="alert alert-secondary">Cancelled{% if co.cancel_reason %}: {{ co.cancel_reason }}{% endif %}</div>{% endif %}
+
+{% if co.status == 'awaiting_confirmation' %}
+<div class="card border-warning mb-3">
+  <div class="card-header text-bg-warning"><i class="bi bi-exclamation-circle"></i> Please confirm your order</div>
+  <div class="card-body">
+    {% if award %}<p class="small mb-2">Selected offer: <strong>{{ award.vendor.business_name }}</strong> {{ ui.platform_badge(award.platform_owned_vendor) }} — {{ award.explanation }}</p>
+      {% if award.disclosure %}<div class="disclosure p-2 small mb-3">{{ award.disclosure }}</div>{% endif %}{% endif %}
+    <form method="post" action="{{ url_for('customer.confirm_order', order_id=co.id) }}" class="mb-3">
+      {{ ui.csrf() }}
+      <div data-fulfilment-choice="#confirm-address" class="mb-2">
+        {% if go.fulfilment_options in ('pickup', 'both') %}
+        <div class="form-check"><input class="form-check-input" type="radio" name="fulfilment_method" id="c_pickup" value="pickup" {% if co.fulfilment_method == 'pickup' %}checked{% endif %}>
+          <label class="form-check-label" for="c_pickup">Community pickup{% if go.pickup_point %} — {{ go.pickup_point.name }}{% endif %}</label></div>
+        {% endif %}
+        {% if go.fulfilment_options in ('home', 'both') %}
+        <div class="form-check"><input class="form-check-input" type="radio" name="fulfilment_method" id="c_home" value="home" {% if co.fulfilment_method == 'home' %}checked{% endif %}>
+          <label class="form-check-label" for="c_home">Home delivery{% if go.awarded_bid %} (+{{ go.awarded_bid.home_delivery_fee|money(co.currency) }}){% endif %}</label></div>
+        {% endif %}
+      </div>
+      <div id="confirm-address" class="mb-2 {{ '' if co.fulfilment_method == 'home' else 'd-none' }}">
+        {% if addresses %}
+        <select class="form-select form-select-sm" name="address_id" aria-label="Delivery address">
+          {% for a in addresses %}<option value="{{ a.id }}" {% if co.address_id == a.id or (not co.address_id and a.is_default) %}selected{% endif %}>{{ a.label }}: {{ a.line1 }}, {{ a.city }}</option>{% endfor %}
+        </select>
+        {% else %}<div class="small text-danger">Add an address in your <a href="{{ url_for('customer.address_form') }}">profile</a> for home delivery.</div>{% endif %}
+      </div>
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle"></i> Confirm order for {{ co.total|money(co.currency) }}</button>
+      <div class="form-text">Changing the fulfilment method recalculates the home delivery fee.</div>
+    </form>
+    <form method="post" action="{{ url_for('customer.decline_order', order_id=co.id) }}" class="d-flex gap-2" data-confirm="Decline this order? Your quantities will be released.">
+      {{ ui.csrf() }}
+      <input class="form-control form-control-sm" name="reason" placeholder="Reason (optional)" maxlength="300" aria-label="Reason">
+      <button class="btn btn-outline-danger btn-sm text-nowrap" type="submit">Decline</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header">Items</div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead><tr><th>Product</th><th class="text-end">Requested</th><th class="text-end">Allocated</th><th class="text-end">Unit price</th><th class="text-end">Line total</th></tr></thead>
+          <tbody>
+          {% for it in co.items %}
+            <tr><td>{{ it.product.emoji or '' }} {{ it.product.name }}</td>
+              <td class="text-end">{{ it.quantity|qty }} {{ it.product.unit }}</td>
+              <td class="text-end">{{ (it.allocated_qty|qty ~ ' ' ~ it.product.unit) if it.allocated_qty is not none else '—' }}</td>
+              <td class="text-end money">{{ it.unit_price|money(co.currency) if it.unit_price is not none else '—' }}</td>
+              <td class="text-end money">{{ it.line_total|money(co.currency) if it.line_total is not none else '—' }}</td></tr>
+          {% else %}<tr><td colspan="5" class="text-muted small">No items.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% if co.priced_at %}
+    <div class="card mb-3"><div class="card-header">Price breakdown</div><div class="card-body p-0">{{ ui.price_breakdown(co) }}</div></div>
+    {% else %}
+    <div class="alert alert-light border small">Your price will be calculated when the group selects an offer. You will be asked to confirm before paying.</div>
+    {% endif %}
+
+    <div class="card mb-3">
+      <div class="card-header">Complaints</div>
+      <ul class="list-group list-group-flush small">
+        {% for c in complaints %}
+          <li class="list-group-item d-flex justify-content-between"><span>#{{ c.id }} {{ COMPLAINT_TYPES.get(c.complaint_type, c.complaint_type) }}</span>{{ ui.status(c.status) }}</li>
+        {% else %}<li class="list-group-item text-muted">No complaints for this order.</li>{% endfor %}
+      </ul>
+      {% if co.status in ('confirmed', 'delivered') and go.status in ('dispatched', 'delivered', 'on_hold') %}
+      <div class="card-footer bg-white"><a class="btn btn-sm btn-outline-danger" href="{{ url_for('customer.new_complaint', order_id=co.id) }}"><i class="bi bi-flag"></i> Report a problem</a></div>
+      {% endif %}
+    </div>
+
+    {% if co.status in ('delivered', 'completed') %}
+    <div class="card mb-3">
+      <div class="card-header">Rate this order</div>
+      <div class="card-body">
+        {% if review %}
+          <div>{% for i in range(review.rating) %}<i class="bi bi-star-fill text-warning"></i>{% endfor %} <span class="small text-muted">{{ review.created_at|localdt('%d %b %Y') }}</span></div>
+          {% if review.comment %}<p class="small mb-0 mt-1">{{ review.comment }}</p>{% endif %}
+        {% else %}
+        <form method="post" action="{{ url_for('customer.review', order_id=co.id) }}">
+          {{ ui.csrf() }}
+          <div class="mb-2" role="radiogroup" aria-label="Rating">
+            {% for i in range(1, 6) %}
+            <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="rating" id="r{{ i }}" value="{{ i }}" required {% if i == 5 %}checked{% endif %}>
+              <label class="form-check-label" for="r{{ i }}">{{ i }}★</label></div>
+            {% endfor %}
+          </div>
+          <textarea class="form-control mb-2" name="comment" rows="2" maxlength="1000" placeholder="How was the freshness and delivery? (optional)" aria-label="Comment"></textarea>
+          <button class="btn btn-primary btn-sm" type="submit">Submit rating</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">Payment</div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between"><span>Order total</span><span class="money fw-semibold">{{ co.total|money(co.currency) }}</span></div>
+        <div class="d-flex justify-content-between"><span>Paid (verified)</span><span class="money">{{ paid|money(co.currency) }}</span></div>
+        {% if refunded > 0 %}<div class="d-flex justify-content-between"><span>Refunded</span><span class="money">{{ refunded|money(co.currency) }}</span></div>{% endif %}
+        <div class="d-flex justify-content-between fw-bold border-top mt-2 pt-2"><span>Outstanding</span><span class="money">{{ outstanding|money(co.currency) }}</span></div>
+        {% if co.status in ('confirmed', 'delivered') and outstanding > 0 %}
+          <div class="alert alert-info small mt-3 mb-0"><i class="bi bi-info-circle"></i> {{ instructions }}<div class="mt-1">Reference: <strong>{{ co.reference }}</strong></div></div>
+        {% endif %}
+      </div>
+      {% if co.payments or co.refunds %}
+      <ul class="list-group list-group-flush small">
+        {% for p in co.payments %}
+          <li class="list-group-item d-flex justify-content-between"><span>Payment #{{ p.id }}{% if p.method %} · {{ p.method|replace('_', ' ') }}{% endif %}<div class="text-muted">{{ (p.confirmed_at or p.created_at)|localdt }}</div></span>
+            <span class="text-end"><span class="money">{{ p.amount|money(p.currency) }}</span><br>{{ ui.status(p.status) }}</span></li>
+        {% endfor %}
+        {% for r in co.refunds %}
+          <li class="list-group-item d-flex justify-content-between"><span>Refund #{{ r.id }}<div class="text-muted">{{ r.reason }}</div></span><span class="money text-danger">−{{ r.amount|money(r.currency) }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    <div class="card mb-3">
+      <div class="card-header">Delivery</div>
+      <div class="card-body small">
+        <div>{{ 'Home delivery' if co.fulfilment_method == 'home' else 'Community pickup' }}</div>
+        {% if co.delivery_address_snapshot %}<div class="text-muted">{{ co.delivery_address_snapshot }}</div>{% endif %}
+        <div class="text-muted">Window: {{ go.delivery_window_start|localdt }} – {{ go.delivery_window_end|localdt('%H:%M') }}</div>
+        {% if co.delivery %}<div class="mt-2">{{ ui.status(co.delivery.status) }}</div>{% endif %}
+      </div>
+      <div class="card-footer bg-white d-flex gap-2">
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('customer.tracking', order_id=co.id) }}"><i class="bi bi-geo"></i> Tracking</a>
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('customer.receipt', order_id=co.id) }}"><i class="bi bi-receipt"></i> Receipt</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

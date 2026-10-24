@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Notifications</h1>
+  {% if notifications|selectattr('is_read', 'equalto', false)|list %}
+  <form method="post" action="{{ url_for('customer.notifications_read') }}">{{ ui.csrf() }}
+    <button class="btn btn-sm btn-outline-primary" type="submit"><i class="bi bi-check2-all"></i> Mark all as read</button></form>
+  {% endif %}
+</div>
+<div class="card">
+  <ul class="list-group list-group-flush">
+    {% for n in notifications %}
+      <li class="list-group-item d-flex justify-content-between align-items-start gap-2 {{ '' if n.is_read else 'bg-light' }}">
+        <div>{% if not n.is_read %}<span class="badge text-bg-success me-1">New</span>{% endif %}
+          {% if n.link and n.link.startswith('/') %}<a href="{{ n.link }}">{{ n.message }}</a>{% else %}{{ n.message }}{% endif %}</div>
+        <span class="small text-muted text-nowrap">{{ n.created_at|localdt('%d %b, %H:%M') }}</span>
+      </li>
+    {% else %}
+      <li class="list-group-item">{{ ui.empty("bell", "No notifications yet") }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

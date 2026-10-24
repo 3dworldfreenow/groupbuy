@@ -1,0 +1,15 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}{{ title }}{% endblock %}
+{% block admin_content %}
+<a href="{{ back }}" class="small">&larr; Back</a>
+<h1 class="h3 my-2">{{ title }}</h1>
+<div class="card" style="max-width: 720px"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {% for f in form if f.type not in ('CSRFTokenField',) %}{{ ui.field(f) }}{% endfor %}
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a class="btn btn-link" href="{{ back }}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

@@ -1,0 +1,31 @@
+# Example Nginx site (optional). Install Nginx only if you choose it:
+#   sudo apt install nginx
+# Copy to /etc/nginx/sites-available/groupbuy, symlink into sites-enabled,
+# then obtain a certificate with certbot (see docs/DEPLOYMENT.md).
+limit_req_zone $binary_remote_addr zone=gb_auth:10m rate=10r/m;
+
+server {
+    listen 80;
+    server_name example.com www.example.com;
+    client_max_body_size 20m;
+
+    location /static/ {
+        alias /opt/groupbuy/app/static/;
+        expires 7d;
+        access_log off;
+    }
+
+    location ~ ^/(login|register|vendor/register)$ {
+        limit_req zone=gb_auth burst=5 nodelay;
+        proxy_pass http://127.0.0.1:8000;
+        include /etc/nginx/proxy_params;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        include /etc/nginx/proxy_params;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}

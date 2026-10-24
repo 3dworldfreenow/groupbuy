@@ -1,0 +1,41 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Financial summary{% endblock %}
+{% block vendor_content %}
+<h1 class="h3 mb-1">Financial summary</h1>
+<p class="text-muted">Commission rate applied to your new bids: <strong>{{ default_rate|pct(2) }}</strong>{% if vendor.commission_rate_override is not none %} (vendor-specific rate){% endif %}.
+  {% if vendor.is_platform_owned %}The founder vendor pays the same published commission as every other vendor.{% endif %}</p>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">{{ ui.stat('Completed order value', finance.completed_value|money, 'bag-check') }}</div>
+  <div class="col-6 col-md-3">{{ ui.stat('Commission', finance.commission_total|money, 'percent') }}</div>
+  <div class="col-6 col-md-3">{{ ui.stat('Payable (pending)', finance.payable_pending|money, 'hourglass-split') }}</div>
+  <div class="col-6 col-md-3">{{ ui.stat('Paid out', finance.paid_total|money, 'cash-stack') }}</div>
+</div>
+<div class="alert alert-light border small"><i class="bi bi-calculator"></i> <strong>Net payable</strong> = goods value + delivery fees − refunds charged to the vendor − platform commission. Settlements are created when the platform closes an order and marked paid with a payment reference.</div>
+
+<div class="card mb-3">
+  <div class="card-header">Settlements</div>
+  <div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Order</th><th class="text-end">Goods</th><th class="text-end">Delivery fees</th><th class="text-end">Refunds</th><th class="text-end">Commission</th><th class="text-end">Net payable</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for s in finance.settlements %}
+    <tr><td>#{{ s.group_order_id }} <span class="small text-muted">{{ s.created_at|localdt('%d %b %Y') }}</span></td>
+      <td class="text-end money">{{ s.goods_amount|money(s.currency) }}</td><td class="text-end money">{{ s.delivery_fees|money(s.currency) }}</td>
+      <td class="text-end money">−{{ s.refunds_deducted|money(s.currency) }}</td><td class="text-end money">−{{ s.commission_amount|money(s.currency) }}</td>
+      <td class="text-end money fw-bold">{{ s.net_payable|money(s.currency) }}</td>
+      <td>{{ ui.status(s.status) }}{% if s.reference %}<div class="small text-muted">Ref {{ s.reference }} · {{ s.paid_at|localdt('%d %b') }}</div>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="7" class="text-muted small">No settlements yet.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+<div class="card">
+  <div class="card-header">Commission statements</div>
+  <div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Order</th><th class="text-end">Base</th><th class="text-end">Rate</th><th class="text-end">Commission</th><th>Date</th></tr></thead>
+    <tbody>
+    {% for c in finance.commissions %}
+    <tr><td>#{{ c.group_order_id }}</td><td class="text-end money">{{ c.base_amount|money(c.currency) }}</td><td class="text-end">{{ c.rate_percent|pct(2) }}</td>
+      <td class="text-end money">{{ c.amount|money(c.currency) }}</td><td class="small">{{ c.created_at|localdt('%d %b %Y') }}</td></tr>
+    {% else %}<tr><td colspan="5" class="text-muted small">No commission records yet.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}

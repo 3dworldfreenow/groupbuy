@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Tracking {{ co.reference }}{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('customer.orders') }}">My orders</a></li>
+  <li class="breadcrumb-item"><a href="{{ url_for('customer.order_detail', order_id=co.id) }}">{{ co.reference }}</a></li>
+  <li class="breadcrumb-item active" aria-current="page">Tracking</li>
+</ol></nav>
+<h1 class="h3">Delivery tracking</h1>
+<div class="mb-3">{{ ui.timeline(go) }}</div>
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>{{ 'Home delivery' if co.fulfilment_method == 'home' else 'Community pickup' }}</span>
+        {% if delivery %}{{ ui.status(delivery.status) }}{% else %}{{ ui.status(go.status, go.status_label) }}{% endif %}</div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-5">Delivery window</dt><dd class="col-7">{{ go.delivery_window_start|localdt }} – {{ go.delivery_window_end|localdt('%H:%M') }}</dd>
+          {% if co.fulfilment_method == 'pickup' and go.pickup_point %}
+            <dt class="col-5">Pickup point</dt><dd class="col-7">{{ go.pickup_point.name }}<div class="text-muted">{{ go.pickup_point.address_text }}</div>{% if go.pickup_point.instructions %}<div class="text-muted">{{ go.pickup_point.instructions }}</div>{% endif %}</dd>
+          {% elif co.delivery_address_snapshot %}
+            <dt class="col-5">Deliver to</dt><dd class="col-7">{{ co.delivery_address_snapshot }}</dd>
+          {% endif %}
+          {% if delivery %}
+            {% if delivery.assigned_to %}<dt class="col-5">Handled by</dt><dd class="col-7">{{ delivery.assigned_to }}</dd>{% endif %}
+            <dt class="col-5">Dispatched</dt><dd class="col-7">{{ delivery.dispatched_at|localdt }}</dd>
+            <dt class="col-5">Delivered</dt><dd class="col-7">{{ delivery.delivered_at|localdt }}{% if delivery.received_by %}<div class="text-muted">Received by {{ delivery.received_by }}</div>{% endif %}</dd>
+            {% if delivery.proof_notes %}<dt class="col-5">Proof notes</dt><dd class="col-7">{{ delivery.proof_notes }}</dd>{% endif %}
+            {% if delivery.condition_notes %}<dt class="col-5">Condition</dt><dd class="col-7">{{ delivery.condition_notes }}</dd>{% endif %}
+            {% if delivery.failure_reason %}<dt class="col-5">Issue</dt><dd class="col-7 text-danger">{{ delivery.failure_reason }}</dd>{% endif %}
+            {% if delivery.customer_confirmed_at %}<dt class="col-5">You confirmed</dt><dd class="col-7">{{ delivery.customer_confirmed_at|localdt }}</dd>{% endif %}
+          {% endif %}
+        </dl>
+        {{ ui.photos(proofs) }}
+      </div>
+      {% if delivery and delivery.status in ('dispatched', 'delivered') and not delivery.customer_confirmed_at %}
+      <div class="card-footer bg-white d-flex flex-wrap gap-2">
+        <form method="post" action="{{ url_for('customer.confirm_received', order_id=co.id) }}" data-confirm="Confirm that you received this order?">
+          {{ ui.csrf() }}<button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle"></i> I received my order</button></form>
+        <a class="btn btn-outline-danger" href="{{ url_for('customer.new_complaint', order_id=co.id) }}"><i class="bi bi-flag"></i> Report a problem</a>
+      </div>
+      {% elif not delivery %}
+      <div class="card-footer bg-white small text-muted">Delivery details appear once the order is packed.</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-clipboard-check"></i> Quality inspections</div>
+      <ul class="list-group list-group-flush small">
+        {% for i in inspections %}
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between"><span>{{ i.created_at|localdt }} · {{ 'Before dispatch' if i.stage == 'pre_dispatch' else 'On delivery' }}</span>{{ ui.status(i.result) }}</div>
+            <div class="{{ 'text-success' if i.verification == 'platform_verified' else 'text-muted' }}">{{ Verification.LABELS.get(i.verification, i.verification) }}</div>
+            {% if i.defect_notes %}<div class="text-muted">{{ i.defect_notes }}</div>{% endif %}
+          </li>
+        {% else %}<li class="list-group-item text-muted">No inspections recorded yet.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

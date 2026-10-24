@@ -1,0 +1,23 @@
+{% import "partials/macros.html" as ui %}
+<div class="table-responsive">
+<table class="table table-sm align-middle">
+  <thead><tr><th>Order</th><th>Customer</th><th>Method / destination</th><th>Window</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+  {% for d in deliveries %}
+    <tr>
+      <td><a href="{{ url_for('vendor.awarded_detail', go_id=d.group_order_id) }}">{{ d.customer_order.reference }}</a></td>
+      <td>{{ d.customer_order.user.full_name }}</td>
+      <td class="small">
+        {% if d.method == 'home' %}<i class="bi bi-house"></i> Home: {{ d.address_text or '—' }}
+        {% else %}<i class="bi bi-geo-alt"></i> {{ d.pickup_point.name if d.pickup_point else (d.address_text or 'Pickup') }}{% endif %}
+        {% if d.assigned_to %}<div class="text-muted">Assigned: {{ d.assigned_to }}</div>{% endif %}
+        {% if d.failure_reason %}<div class="text-danger">{{ d.failure_reason }}</div>{% endif %}
+      </td>
+      <td class="small">{{ d.window_start|localdt('%d %b %H:%M') }} – {{ d.window_end|localdt('%H:%M') }}</td>
+      <td>{{ ui.status(d.status) }}{% if d.attempts > 1 %}<div class="small text-muted">{{ d.attempts }} attempts</div>{% endif %}</td>
+      <td style="min-width:220px">{% include "vendor/_delivery_actions.html" %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

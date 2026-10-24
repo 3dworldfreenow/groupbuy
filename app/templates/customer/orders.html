@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}My orders{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">My orders</h1>
+<div class="card">
+  {% if orders %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Reference</th><th>Group order</th><th>Status</th><th>Payment</th><th class="text-end">Total</th><th></th></tr></thead>
+      <tbody>
+      {% for o in orders %}
+        <tr>
+          <td><a href="{{ url_for('customer.order_detail', order_id=o.id) }}">{{ o.reference }}</a><div class="small text-muted">{{ o.created_at|localdt('%d %b %Y') }}</div></td>
+          <td>{{ o.group_order.title }}<div class="small text-muted">{{ o.group_order.group.name }}</div></td>
+          <td>{{ ui.status(o.status, o.status_label) }}</td>
+          <td>{{ ui.status(o.payment_status) }}</td>
+          <td class="text-end money">{{ o.total|money(o.currency) if o.total and o.total > 0 else '—' }}</td>
+          <td class="text-end text-nowrap">
+            {% if o.delivery %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('customer.tracking', order_id=o.id) }}">Track</a>{% endif %}
+            <a class="btn btn-sm btn-primary" href="{{ url_for('customer.order_detail', order_id=o.id) }}">View</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {% call ui.empty("receipt", "No orders yet", "Join a buying group and add your quantities to place your first order.") %}
+      <a class="btn btn-primary btn-sm mt-2" href="{{ url_for('public.groups') }}">Find a group</a>{% endcall %}
+  {% endif %}
+</div>
+{% endblock %}

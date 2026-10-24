@@ -1,0 +1,38 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Bidding management{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Bidding management</h1>
+<div class="row g-3 mb-3">
+  <div class="col-md-6"><div class="card h-100"><div class="card-body">
+    <div class="small-label">Marketplace stage</div>
+    {% if multi_vendor %}<div class="h5 mb-1">Stage 2 · Multi-vendor bidding</div><p class="small text-muted mb-2">Approved vendors serving the group's area may submit sealed bids.</p>
+    {% else %}<div class="h5 mb-1">Stage 1 · Founder vendor only</div><p class="small text-muted mb-2">Only the platform-owned vendor publishes offers. Enable multi-vendor bidding in settings for Stage 2.</p>{% endif %}
+    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.settings') }}">Change in settings</a>
+  </div></div></div>
+  <div class="col-md-6"><div class="card h-100"><div class="card-body">
+    <div class="small-label mb-1">Published scoring weights</div>
+    {% for k, w in weights.items() %}
+      <div class="d-flex justify-content-between small"><span>{{ k|replace('_',' ')|capitalize }}</span><strong>{{ (w * 100)|pct(0) }}</strong></div>
+      {{ ui.progress_bar((w * 100)|round|int) }}
+    {% endfor %}
+  </div></div></div>
+</div>
+<div class="alert alert-info small"><i class="bi bi-lock"></i> Bid values stay sealed from administrators and competitors until the bidding deadline. Only bid counts are shown while bidding is open.</div>
+<div class="card mb-3"><div class="card-header">Orders in bidding, comparison or awaiting acceptance</div>
+<div class="table-responsive"><table class="table mb-0"><thead><tr><th>#</th><th>Order</th><th>Status</th><th>Mode</th><th>Bidding deadline</th><th>Bids</th><th>Award policy</th></tr></thead><tbody>
+{% for go in rows %}
+<tr><td>{{ go.id }}</td><td><a href="{{ url_for('admin.group_order', go_id=go.id) }}">{{ go.title }}</a><div class="small text-muted">{{ go.group.name }}</div></td>
+<td>{{ ui.status(go.status) }}</td><td class="small">{{ (go.bidding_mode or '—')|status_label }}</td>
+<td class="small">{{ go.bidding_deadline|localdt }}{% if go.status == 'bidding' %}<div class="text-muted">{{ go.bidding_deadline|timeleft }}</div>{% endif %}</td>
+<td>{{ counts[go.id] }}</td><td class="small">{{ go.selection_mode|status_label }}</td></tr>
+{% else %}<tr><td colspan="7">{{ ui.empty('hammer', 'No orders are currently in bidding') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+<div class="card"><div class="card-header">Recent award decisions</div><ul class="list-group list-group-flush">
+{% for go in decisions %}
+  {% set a = go.award_decisions[0] if go.award_decisions else None %}
+  <li class="list-group-item small"><a href="{{ url_for('admin.group_order', go_id=go.id) }}">#{{ go.id }} {{ go.title }}</a> · {{ go.awarded_at|localdt }} {{ ui.status(go.status) }}
+  {% if a %}<div>{{ a.explanation }} {{ ui.platform_badge(a.platform_owned_vendor) }}{% if a.status == 'revoked' %} <span class="badge text-bg-secondary">Revoked</span>{% endif %}</div>{% endif %}</li>
+{% else %}<li class="list-group-item">{{ ui.empty('award', 'No awards yet') }}</li>{% endfor %}
+</ul></div>
+{% endblock %}

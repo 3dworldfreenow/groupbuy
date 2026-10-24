@@ -1,0 +1,23 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Locations{% endblock %}
+{% block admin_content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0">Locations & pickup points</h1>
+  <div class="d-flex gap-2"><a class="btn btn-primary btn-sm" href="{{ url_for('admin.location_form') }}"><i class="bi bi-plus"></i> New location</a><a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin.pickup_form') }}"><i class="bi bi-plus"></i> New pickup point</a></div>
+</div>
+<div class="row g-3">
+{% for l in locations %}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>{{ l.label }}{% if l.state %}, {{ l.state }}{% endif %} · {{ l.country }} {% if not l.is_active %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.location_form', entity_id=l.id) }}">Edit</a></div>
+      <ul class="list-group list-group-flush">
+      {% for p in l.pickup_points %}
+        <li class="list-group-item d-flex justify-content-between"><span><strong>{{ p.name }}</strong>{% if not p.is_active %} <span class="badge text-bg-secondary">Inactive</span>{% endif %}<div class="small text-muted">{{ p.address_text }}{% if p.instructions %} · {{ p.instructions }}{% endif %}</div></span><a class="btn btn-sm btn-outline-secondary align-self-start" href="{{ url_for('admin.pickup_form', entity_id=p.id) }}">Edit</a></li>
+      {% else %}<li class="list-group-item small text-muted">No pickup points.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+{% else %}<div class="col-12">{{ ui.empty('geo-alt', 'No locations yet') }}</div>{% endfor %}
+</div>
+{% endblock %}

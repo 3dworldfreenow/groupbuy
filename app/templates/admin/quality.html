@@ -1,0 +1,22 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Quality inspection{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Quality inspection</h1>
+<div class="card mb-3"><div class="card-header">Orders being sourced, checked or on hold</div>
+<div class="table-responsive"><table class="table mb-0"><thead><tr><th>#</th><th>Order</th><th>Vendor</th><th>Status</th><th>Delivery window</th><th></th></tr></thead><tbody>
+{% for go in waiting %}
+<tr><td>{{ go.id }}</td><td>{{ go.title }}<div class="small text-muted">{{ go.group.name }}</div></td>
+<td class="small">{% if go.awarded_bid %}{{ go.awarded_bid.vendor.business_name }} {{ ui.platform_badge(go.awarded_bid.is_platform_owned) }}{% endif %}</td>
+<td>{{ ui.status(go.status) }}</td><td class="small">{{ go.delivery_window_start|localdt }}</td>
+<td><a class="btn btn-sm btn-primary" href="{{ url_for('admin.inspect', go_id=go.id) }}">Inspect</a></td></tr>
+{% else %}<tr><td colspan="6">{{ ui.empty('clipboard-check', 'Nothing waiting for inspection') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+<div class="card"><div class="card-header">Recent inspections</div>
+<div class="table-responsive"><table class="table mb-0"><thead><tr><th>When</th><th>Order</th><th>Stage</th><th>Verification</th><th>Result</th><th>Inspector</th></tr></thead><tbody>
+{% for i in recent %}
+<tr><td class="small">{{ i.created_at|localdt }}</td><td><a href="{{ url_for('admin.inspect', go_id=i.group_order_id) }}">#{{ i.group_order_id }}</a></td><td class="small">{{ i.stage|status_label }}</td>
+<td class="small">{{ Verification.LABELS.get(i.verification) }}</td><td>{{ ui.status(i.result) }}{% if i.placed_on_hold %} <span class="badge text-bg-danger">Hold</span>{% endif %}</td><td class="small">{{ i.inspector.full_name }}</td></tr>
+{% else %}<tr><td colspan="6">{{ ui.empty('clipboard', 'No inspections yet') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

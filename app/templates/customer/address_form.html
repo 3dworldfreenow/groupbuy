@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}{{ 'Edit' if address else 'Add' }} address{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <h1 class="h3">{{ 'Edit' if address else 'Add' }} address</h1>
+    <div class="card"><div class="card-body">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="row">
+          {{ ui.field(form.label, cls="col-md-4") }}
+          {{ ui.field(form.recipient_name, cls="col-md-8") }}
+        </div>
+        {{ ui.field(form.phone) }}
+        {{ ui.field(form.line1) }}
+        {{ ui.field(form.line2) }}
+        <div class="row">
+          {{ ui.field(form.city, cls="col-md-5") }}
+          {{ ui.field(form.state, cls="col-md-4") }}
+          {{ ui.field(form.postal_code, cls="col-md-3") }}
+        </div>
+        {{ ui.field(form.location_id) }}
+        {{ ui.field(form.is_default) }}
+        <button class="btn btn-primary" type="submit">Save address</button>
+        <a class="btn btn-link" href="{{ url_for('customer.profile') }}">Cancel</a>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

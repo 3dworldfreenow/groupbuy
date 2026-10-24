@@ -1,0 +1,54 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Inspect order #{{ go.id }}{% endblock %}
+{% block admin_content %}
+<a href="{{ url_for('admin.quality') }}" class="small">&larr; Quality</a>
+<div class="d-flex flex-wrap align-items-center gap-2 my-2"><h1 class="h3 mb-0">Inspect #{{ go.id }} {{ go.title }}</h1> {{ ui.status(go.status) }}
+  <a class="small" href="{{ url_for('admin.group_order', go_id=go.id) }}">Order page</a></div>
+{% if go.awarded_bid %}<p class="small text-muted">Vendor: {{ go.awarded_bid.vendor.business_name }} {{ ui.platform_badge(go.awarded_bid.is_platform_owned) }} · Offered grade {{ go.awarded_bid.grade.label }}</p>{% endif %}
+<div class="alert {{ 'alert-success' if clearance[0] else 'alert-warning' }} small">{{ 'Latest inspection clears this order for packing.' if clearance[0] else clearance[1] }}</div>
+
+<div class="card mb-3"><div class="card-header">Record platform-verified inspection</div><div class="card-body">
+<form method="post" enctype="multipart/form-data">{{ ui.csrf() }}
+  <div class="row g-2 mb-3">
+    <div class="col-md-4"><label class="form-label">Stage</label><select class="form-select" name="stage"><option value="pre_dispatch">Pre-dispatch</option><option value="on_delivery">On delivery</option></select></div>
+    <div class="col-md-4"><label class="form-label">Result</label><select class="form-select" name="result"><option value="pass">Pass</option><option value="conditional">Conditional pass</option><option value="fail">Fail</option></select></div>
+    <div class="col-md-4"><label class="form-label">Batch (optional)</label><select class="form-select" name="batch_id"><option value="">—</option>{% for b in batches %}<option value="{{ b.id }}">{{ b.lot_code }} · {{ b.product.name }} {{ b.quantity|qty }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="mb-3"><div class="form-label">Checklist</div><div class="row">
+    {% for key, label in checklist %}<div class="col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="check_{{ key }}" value="1" id="ck_{{ key }}"><label class="form-check-label" for="ck_{{ key }}">{{ label }}</label></div></div>{% endfor %}
+  </div></div>
+  <div class="table-responsive mb-3"><table class="table table-sm"><thead><tr><th>Product</th><th>Expected</th><th>Received</th><th>Accepted</th><th>Rejected</th><th>Notes</th></tr></thead><tbody>
+  {% for i in go.items if not i.dropped %}
+    {% set exp = packing.get(i.product_id, i.frozen_qty or 0) %}
+    <tr><td>{{ i.product.emoji or '' }} {{ i.product.name }} <span class="small text-muted">({{ i.product.unit }})</span></td>
+      <td><input class="form-control form-control-sm" type="number" step="0.001" min="0" name="expected_{{ i.id }}" value="{{ exp|qty }}"></td>
+      <td><input class="form-control form-control-sm" type="number" step="0.001" min="0" name="received_{{ i.id }}" value="{{ exp|qty }}"></td>
+      <td><input class="form-control form-control-sm" type="number" step="0.001" min="0" name="accepted_{{ i.id }}" value="{{ exp|qty }}"></td>
+      <td><input class="form-control form-control-sm" type="number" step="0.001" min="0" name="rejected_{{ i.id }}" value="0"></td>
+      <td><input class="form-control form-control-sm" name="notes_{{ i.id }}" maxlength="300"></td></tr>
+  {% endfor %}
+  </tbody></table></div>
+  <div class="row g-2 mb-3">
+    <div class="col-md-4"><label class="form-label">Spoilage quantity</label><input class="form-control" type="number" step="0.001" min="0" name="spoilage_qty" value="0"></div>
+    <div class="col-md-8"><label class="form-label">Delivery / packing condition</label><input class="form-control" name="delivery_condition" maxlength="300"></div>
+  </div>
+  <div class="mb-3"><label class="form-label">Defect and spoilage notes <span class="small text-muted">(required for a failed inspection)</span></label><textarea class="form-control" name="defect_notes" rows="3"></textarea></div>
+  <div class="mb-3"><label class="form-label">Inspection photos</label><input class="form-control" type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp"></div>
+  <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="place_on_hold" value="1" id="hold" checked><label class="form-check-label" for="hold">If the inspection fails, place the order on hold</label></div>
+  <button class="btn btn-primary" type="submit">Record inspection</button>
+</form>
+</div></div>
+
+<div class="card"><div class="card-header">Inspection history</div><ul class="list-group list-group-flush">
+{% for i in inspections %}
+  <li class="list-group-item">
+    <div class="d-flex flex-wrap gap-2 align-items-center">{{ ui.status(i.result) }} <strong>{{ i.stage|status_label }}</strong> <span class="badge {{ 'text-bg-success' if i.verification == 'platform_verified' else 'text-bg-light border' }}">{{ Verification.LABELS.get(i.verification) }}</span> <span class="small text-muted">{{ i.created_at|localdt }} · {{ i.inspector.full_name }}</span>{% if i.placed_on_hold %} <span class="badge text-bg-danger">Placed on hold</span>{% endif %}</div>
+    {% if i.items %}<div class="small mt-1">{% for it in i.items %}{{ it.product.name }}: received {{ it.received_qty|qty }}, accepted {{ it.accepted_qty|qty }}, rejected {{ it.rejected_qty|qty }}{% if it.notes %} ({{ it.notes }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+    {% set passed = i.checklist_data.items()|selectattr(1)|list|length %}<div class="small text-muted">Checklist: {{ passed }}/{{ checklist|length }} items confirmed{% if i.spoilage_qty %} · spoilage {{ i.spoilage_qty|qty }}{% endif %}{% if i.delivery_condition %} · {{ i.delivery_condition }}{% endif %}</div>
+    {% if i.defect_notes %}<div class="small">{{ i.defect_notes }}</div>{% endif %}
+    {{ ui.photos(photos.get(i.id)) }}
+  </li>
+{% else %}<li class="list-group-item">{{ ui.empty('clipboard', 'No inspections recorded for this order') }}</li>{% endfor %}
+</ul></div>
+{% endblock %}

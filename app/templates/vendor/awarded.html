@@ -1,0 +1,24 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Awarded orders{% endblock %}
+{% block vendor_content %}
+<h1 class="h3 mb-3">Awarded orders</h1>
+{% for b in rows %}
+{% set go = b.group_order %}
+<div class="card card-hover mb-3">
+  <div class="card-body d-flex flex-wrap justify-content-between gap-2 align-items-center">
+    <div>
+      <a class="h5 mb-1 d-block" href="{{ url_for('vendor.awarded_detail', go_id=go.id) }}">{{ go.title }}</a>
+      <div class="small text-muted">{{ go.group.name }} · {{ go.group.location.label }} · deliver {{ go.delivery_window_start|localdt('%d %b %H:%M') }} – {{ go.delivery_window_end|localdt('%H:%M') }}</div>
+      <div class="small">Goods {{ b.subtotal|money(b.currency) }} · {{ b.grade.label }}</div>
+    </div>
+    <div class="text-end">
+      {{ ui.status(go.status) }}
+      <div class="mt-2"><a class="btn btn-sm btn-primary" href="{{ url_for('vendor.awarded_detail', go_id=go.id) }}">{{ 'Accept / decline' if go.status == 'awarded' else 'Manage fulfilment' }}</a></div>
+    </div>
+  </div>
+</div>
+{% else %}
+  {% call ui.empty('trophy', 'No awarded orders yet', 'When a group selects your offer it appears here for fulfilment.') %}{% endcall %}
+{% endfor %}
+{% endblock %}

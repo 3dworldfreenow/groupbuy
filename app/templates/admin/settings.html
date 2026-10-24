@@ -1,0 +1,24 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Platform settings{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Platform settings</h1>
+<form method="post" class="card" data-confirm="Save platform settings?"><div class="card-body">{{ ui.csrf() }}
+  {% for key, (kind, default, label, help) in defs.items() %}
+    <div class="mb-3">
+    {% if kind == 'bool' %}
+      <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" name="{{ key }}" value="1" id="s_{{ key }}" {% if values[key] %}checked{% endif %}><label class="form-check-label fw-semibold" for="s_{{ key }}">{{ label }}</label></div>
+    {% else %}
+      <label class="form-label fw-semibold" for="s_{{ key }}">{{ label }}</label>
+      {% if kind == 'int' %}<input class="form-control" type="number" step="1" min="0" name="{{ key }}" id="s_{{ key }}" value="{{ values[key] }}">
+      {% elif kind == 'decimal' %}<input class="form-control" type="number" step="0.01" min="0" name="{{ key }}" id="s_{{ key }}" value="{{ values[key] }}">
+      {% elif kind == 'choice' %}<select class="form-select" name="{{ key }}" id="s_{{ key }}">{% for k, l in SelectionMode.LABELS.items() %}<option value="{{ k }}" {% if values[key] == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      {% else %}<textarea class="form-control" name="{{ key }}" id="s_{{ key }}" rows="3" maxlength="2000">{{ values[key] }}</textarea>{% endif %}
+    {% endif %}
+    {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+    </div>
+  {% endfor %}
+  <div class="alert alert-info small">Award scores combine all weights. Price cannot be the only criterion — at least one non-price weight must be above zero. Changes are recorded in the audit log.</div>
+  <button class="btn btn-primary" type="submit">Save settings</button>
+</div></form>
+{% endblock %}

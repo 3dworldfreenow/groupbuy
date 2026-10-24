@@ -1,0 +1,54 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Complaint #{{ c.id }}{% endblock %}
+{% block admin_content %}
+<a href="{{ url_for('admin.complaints') }}" class="small">&larr; Complaints</a>
+<div class="d-flex flex-wrap align-items-center gap-2 my-2"><h1 class="h3 mb-0">Complaint #{{ c.id }}</h1> {{ ui.status(c.status) }}</div>
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card mb-3"><div class="card-header">{{ COMPLAINT_TYPES.get(c.complaint_type, c.complaint_type) }}{% if c.product %} · {{ c.product.name }}{% endif %}{% if c.quantity_affected %} · {{ c.quantity_affected|qty }} affected{% endif %}</div><div class="card-body">
+      <p class="mb-1">{{ c.description }}</p>
+      <div class="small text-muted">{{ c.user.full_name }} ({{ c.user.email }}) · {{ c.created_at|localdt }}</div>
+      {{ ui.photos(photos) }}
+    </div></div>
+    <div class="card mb-3"><div class="card-header">Vendor response</div><div class="card-body">
+      {% if c.vendor_response %}<p class="mb-1">{{ c.vendor_response }}</p><div class="small text-muted">{{ c.vendor.business_name if c.vendor else '' }} · {{ c.vendor_responded_at|localdt }}</div>
+      {% else %}<p class="text-muted mb-0">No response from the vendor yet.</p>{% endif %}
+    </div></div>
+    {% if c.status in ['resolved','rejected'] %}
+    <div class="card"><div class="card-header">Resolution</div><div class="card-body">
+      <p class="mb-1"><strong>{{ resolutions.get(c.resolution, c.resolution or '—') }}</strong></p><p class="mb-1">{{ c.resolution_notes }}</p>
+      <div class="small text-muted">{{ c.resolved_at|localdt }}</div>
+      {% for r in c.refunds %}<div class="small">Refund {{ r.amount|money(r.currency) }} ({{ r.charged_to }})</div>{% endfor %}
+    </div></div>
+    {% endif %}
+  </div>
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-header">Order {{ co.reference }}</div><div class="card-body small">
+      <div class="mb-2">{{ ui.status(co.status) }} {{ ui.status(co.payment_status) }} · <a href="{{ url_for('admin.group_order', go_id=co.group_order_id) }}">Group order #{{ co.group_order_id }}</a></div>
+      <ul class="list-unstyled mb-2">{% for it in co.items %}<li>{{ it.product.name }}: {{ (it.allocated_qty if it.allocated_qty is not none else it.quantity)|qty }} {{ it.product.unit }}{% if it.unit_price %} × {{ it.unit_price|money(co.currency) }}{% endif %}</li>{% endfor %}</ul>
+      {{ ui.price_breakdown(co) }}
+      <div class="mt-2">Refundable now: <strong class="money">{{ refundable|money(co.currency) }}</strong></div>
+    </div></div>
+    {% if c.status in ['open','vendor_responded'] %}
+    <div class="card mb-3"><div class="card-header">Resolve</div><div class="card-body">
+      <form method="post" data-confirm="Resolve this complaint?">{{ ui.csrf() }}
+        <div class="mb-2"><label class="form-label">Resolution</label><select class="form-select" name="resolution">{% for k, l in resolutions.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+        <div class="row g-2 mb-2">
+          <div class="col-6"><label class="form-label">Refund amount</label><input class="form-control" type="number" step="0.01" min="0.01" max="{{ refundable }}" name="refund_amount" {% if refundable <= 0 %}disabled placeholder="Nothing paid yet"{% endif %}></div>
+          <div class="col-6"><label class="form-label">Borne by</label><select class="form-select" name="charged_to"><option value="vendor">Vendor</option><option value="platform">Platform</option></select></div>
+        </div>
+        <div class="mb-2"><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="3" required></textarea></div>
+        <button class="btn btn-primary" type="submit">Resolve complaint</button>
+      </form>
+    </div></div>
+    <div class="card"><div class="card-header">Reject</div><div class="card-body">
+      <form method="post" data-confirm="Reject this complaint?">{{ ui.csrf() }}<input type="hidden" name="reject" value="1">
+        <div class="mb-2"><textarea class="form-control" name="notes" rows="2" placeholder="Reason for rejection (shared with the customer)" required></textarea></div>
+        <button class="btn btn-outline-danger" type="submit">Reject complaint</button>
+      </form>
+    </div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

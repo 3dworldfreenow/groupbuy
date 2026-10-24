@@ -1,0 +1,228 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Group order #{{ go.id }}{% endblock %}
+{% block admin_content %}
+{% set award = go.active_award %}
+<a href="{{ url_for('admin.group_orders') }}" class="small">&larr; Group orders</a>
+<div class="d-flex flex-wrap align-items-center gap-2 my-2">
+  <h1 class="h3 mb-0">#{{ go.id }} {{ go.title }}</h1> {{ ui.status(go.status) }}
+</div>
+<div class="mb-3">{{ ui.timeline(go) }}</div>
+{% if go.status == 'on_hold' %}<div class="alert alert-danger"><strong>On hold:</strong> {{ go.hold_reason }} (from {{ go.hold_from_status|status_label }})</div>{% endif %}
+{% if go.status == 'cancelled' %}<div class="alert alert-secondary"><strong>Cancelled:</strong> {{ go.cancellation_reason }}</div>{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <div class="card h-100"><div class="card-header">Details</div><div class="card-body small">
+      <dl class="row mb-0">
+        <dt class="col-sm-5">Group</dt><dd class="col-sm-7"><a href="{{ url_for('public.group_detail', group_id=go.group_id) }}">{{ go.group.name }}</a> (organiser {{ go.group.organiser.full_name }})</dd>
+        <dt class="col-sm-5">Location</dt><dd class="col-sm-7">{{ go.group.location.label }}</dd>
+        <dt class="col-sm-5">Pickup point</dt><dd class="col-sm-7">{{ go.pickup_point.name if go.pickup_point else '—' }}</dd>
+        <dt class="col-sm-5">Fulfilment</dt><dd class="col-sm-7">{{ go.fulfilment_options|status_label }}</dd>
+        <dt class="col-sm-5">Order deadline</dt><dd class="col-sm-7">{{ go.order_deadline|localdt }}</dd>
+        <dt class="col-sm-5">Bidding deadline</dt><dd class="col-sm-7">{{ go.bidding_deadline|localdt }}</dd>
+        <dt class="col-sm-5">Delivery window</dt><dd class="col-sm-7">{{ go.delivery_window_start|localdt }} – {{ go.delivery_window_end|localdt('%H:%M') }}</dd>
+        <dt class="col-sm-5">Award policy</dt><dd class="col-sm-7">{{ SelectionMode.LABELS.get(go.selection_mode, go.selection_mode) }}</dd>
+        <dt class="col-sm-5">Bidding mode</dt><dd class="col-sm-7">{{ (go.bidding_mode or 'not opened')|status_label }}</dd>
+        <dt class="col-sm-5">Partial fulfilment</dt><dd class="col-sm-7">{% if go.allow_partial %}Allowed (min {{ go.min_fulfilment_percent }}% per item){% else %}Not allowed{% endif %}</dd>
+        <dt class="col-sm-5">Service fee</dt><dd class="col-sm-7">{{ go.service_fee_percent }}%</dd>
+        <dt class="col-sm-5">Currency</dt><dd class="col-sm-7">{{ go.currency }}</dd>
+      </dl>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100"><div class="card-header">Demand ({{ progress.buyers }} buyers)</div>
+      <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Product</th><th>Ordered</th><th>Target</th><th>Min / max</th><th></th></tr></thead><tbody>
+      {% for r in progress.rows %}
+        <tr><td>{{ r.product.emoji or '' }} {{ r.product.name }}{% if r.item.dropped %} <span class="badge text-bg-secondary">Dropped</span>{% endif %}</td>
+          <td>{{ r.aggregate|qty }} {{ r.product.unit }}</td><td>{{ r.target|qty }}</td>
+          <td class="small">{{ r.min|qty }} / {{ r.max|qty if r.max is not none else '—' }}</td>
+          <td style="min-width:80px">{{ ui.progress_bar(r.percent, not r.meets_min) }}</td></tr>
+      {% else %}<tr><td colspan="5" class="text-muted">No products configured.</td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-header">Administrator actions</div><div class="card-body">
+  <div class="row g-3">
+  {% if go.status == 'collecting' %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='freeze') }}" data-confirm="Freeze quantities now and open offers?">{{ ui.csrf() }}
+      <label class="form-label small">Freeze orders early</label><input class="form-control form-control-sm mb-2" name="reason" placeholder="Reason (logged)" maxlength="300">
+      <button class="btn btn-sm btn-outline-primary" type="submit">Freeze orders</button></form></div>
+  {% endif %}
+  {% if go.status == 'bidding' %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='close-bidding') }}" data-confirm="Close bidding before the deadline? This is recorded in the audit log.">{{ ui.csrf() }}
+      <label class="form-label small">Close bidding early — logged</label><input class="form-control form-control-sm mb-2" name="reason" required maxlength="300" placeholder="Reason (required)">
+      <button class="btn btn-sm btn-outline-warning" type="submit">Close bidding</button></form></div>
+  {% endif %}
+  {% if go.status == 'selection' %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='reopen-bidding') }}" data-confirm="Reopen bidding?">{{ ui.csrf() }}
+      <label class="form-label small">Reopen bidding until</label><input class="form-control form-control-sm mb-2" type="datetime-local" name="bidding_deadline" required>
+      <button class="btn btn-sm btn-outline-primary" type="submit">Reopen bidding</button></form></div>
+    {% if go.selection_mode != 'organiser' %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='apply-award-rule') }}" data-confirm="Apply the published award rule now?">{{ ui.csrf() }}
+      <label class="form-label small">Apply the disclosed award rule</label>
+      <p class="small text-muted mb-2">The winner is computed by the rule ({{ go.selection_mode|status_label }}). Administrators cannot hand-pick an offer.</p>
+      <button class="btn btn-sm btn-primary" type="submit">Apply award rule</button></form></div>
+    {% else %}
+    <div class="col-md-6 small text-muted">Under the organiser policy only the group organiser selects the offer. Administrators cannot hand-pick a winner.</div>
+    {% endif %}
+  {% endif %}
+  {% if go.status == 'awarded' %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='revoke-award') }}" data-confirm="Revoke this award and return to offer comparison?">{{ ui.csrf() }}
+      <label class="form-label small">Revoke award</label><input class="form-control form-control-sm mb-2" name="reason" required maxlength="500" placeholder="Reason (required)">
+      <button class="btn btn-sm btn-outline-danger" type="submit">Revoke award</button></form></div>
+  {% endif %}
+  {% if go.status in ['sourcing','quality_check','packed','dispatched','delivered'] %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='hold') }}" data-confirm="Place this order on hold?">{{ ui.csrf() }}
+      <label class="form-label small">Place on hold</label><input class="form-control form-control-sm mb-2" name="reason" required maxlength="500" placeholder="Reason (required)">
+      <button class="btn btn-sm btn-outline-danger" type="submit">Place on hold</button></form></div>
+  {% endif %}
+  {% if go.status == 'on_hold' %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='resume') }}" data-confirm="Release the hold?">{{ ui.csrf() }}
+      <label class="form-label small">Release hold and resume to</label>
+      <select class="form-select form-select-sm mb-2" name="target">
+        {% for t in [go.hold_from_status, 'sourcing', 'quality_check']|unique %}{% if t %}<option value="{{ t }}">{{ t|status_label }}</option>{% endif %}{% endfor %}
+      </select>
+      <button class="btn btn-sm btn-primary" type="submit">Release hold</button></form></div>
+  {% endif %}
+  {% if go.status == 'delivered' %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='close') }}" data-confirm="Close this order and create commission and settlement records?">{{ ui.csrf() }}
+      <label class="form-label small">Close order</label>
+      <p class="small mb-2 {{ 'text-success' if close_ready[0] else 'text-danger' }}">{{ 'Ready to close.' if close_ready[0] else close_ready[1] }}</p>
+      <button class="btn btn-sm btn-primary" type="submit" {% if not close_ready[0] %}disabled{% endif %}>Close order</button></form></div>
+  {% endif %}
+  {% if go.status not in ['closed','cancelled','dispatched','delivered'] %}
+    <div class="col-md-6"><form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='cancel') }}" data-confirm="Cancel this group order for every member? This cannot be undone.">{{ ui.csrf() }}
+      <label class="form-label small">Cancel group order</label><input class="form-control form-control-sm mb-2" name="reason" required maxlength="500" placeholder="Reason shown to members">
+      <button class="btn btn-sm btn-danger" type="submit">Cancel order</button></form></div>
+  {% endif %}
+  {% if go.status in ['closed','cancelled'] %}<div class="col-12 small text-muted">This order is {{ go.status|status_label|lower }}; no further status actions are available.</div>{% endif %}
+  </div>
+</div></div>
+
+<div class="card mb-3"><div class="card-header">Offers &amp; bids</div><div class="card-body">
+{% if sealed %}
+  <div class="alert alert-info mb-0"><i class="bi bi-lock"></i> <strong>{{ go.bids|rejectattr('status','equalto','withdrawn')|list|length }}</strong> sealed bid(s) received. Bidding closes {{ go.bidding_deadline|localdt }} ({{ go.bidding_deadline|timeleft }}).<br>
+  Bid values are sealed until the deadline — administrators cannot view them (conflict-of-interest control).</div>
+{% elif bids %}
+  <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Vendor</th><th>Status</th><th>Grade</th><th>Goods</th><th>Delivery fee</th><th>Score</th><th>Eligible</th><th>Votes</th></tr></thead><tbody>
+  {% for b in bids %}
+    <tr><td>{{ b.vendor.business_name }} {{ ui.platform_badge(b.is_platform_owned) }}<div class="small text-muted">rev {{ b.revision }} · {{ b.submitted_at|localdt }}</div></td>
+      <td>{{ ui.status(b.status) }}</td><td>{{ b.grade.code }}</td>
+      <td class="money">{{ b.subtotal|money(b.currency) }}</td><td class="money">{{ b.delivery_fee|money(b.currency) }}{% if b.home_delivery_fee %}<div class="small text-muted">+{{ b.home_delivery_fee|money(b.currency) }}/home</div>{% endif %}</td>
+      <td>{{ b.score if b.score is not none else '—' }}</td>
+      <td>{% if b.eligible %}<span class="badge text-bg-success">Yes</span>{% elif b.eligible is none %}—{% else %}<span class="badge text-bg-secondary">No</span><div class="small text-muted">{{ b.eligibility_notes }}</div>{% endif %}</td>
+      <td>{{ tally.get(b.id, 0) }}</td></tr>
+  {% endfor %}
+  </tbody></table></div>
+{% else %}
+  {{ ui.empty('hammer', 'No bids for this order') }}
+{% endif %}
+{% if award %}
+  <hr>
+  <h2 class="h6">Award decision {{ ui.platform_badge(award.platform_owned_vendor) }}</h2>
+  <p class="mb-1">{{ award.explanation }}</p>
+  <div class="small text-muted mb-2">Method: {{ award.method|status_label }} · {{ award.decided_at|localdt }}{% if award.decided_by %} · by {{ award.decided_by.full_name }}{% else %} · automatic{% endif %}</div>
+  {% if award.disclosure %}<div class="alert disclosure small mb-2">{{ award.disclosure }}</div>{% endif %}
+  {% if award.snapshot %}
+  <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Vendor</th><th>Score</th><th>Goods</th><th>Customer cost</th><th>Grade</th><th>Votes</th></tr></thead><tbody>
+  {% for s in award.snapshot %}<tr><td>{{ s.vendor }} {{ ui.platform_badge(s.platform_owned) }}</td><td>{{ s.score }}</td><td class="money">{{ s.goods_total|money(go.currency) }}</td><td class="money">{{ s.customer_cost|money(go.currency) }}</td><td>{{ s.grade }}</td><td>{{ s.votes }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% endif %}
+{% endif %}
+{% for a in go.award_decisions if a.status == 'revoked' %}
+  <div class="small text-muted mt-2">Revoked award ({{ a.vendor.business_name }}) on {{ a.revoked_at|localdt }}: {{ a.revoke_reason }}</div>
+{% endfor %}
+</div></div>
+
+<div class="card mb-3"><div class="card-header">Customer orders &amp; payments</div>
+<div class="table-responsive"><table class="table mb-0"><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Method</th><th>Total</th><th>Payment</th><th>Outstanding</th></tr></thead><tbody>
+{% for co in go.customer_orders %}
+  <tr>
+    <td>{{ co.reference }}</td>
+    <td class="small">{{ co.user.full_name }}<br><span class="text-muted">{{ co.user.email }}</span></td>
+    <td>{{ ui.status(co.status) }}</td><td class="small">{{ co.fulfilment_method|status_label }}</td>
+    <td class="money">{{ co.total|money(co.currency) }}</td><td>{{ ui.status(co.payment_status) }}</td>
+    <td class="money">{{ outstanding[co.id]|money(co.currency) }}</td>
+  </tr>
+  {% if co.status in ['confirmed','delivered','completed'] or co.payments or co.refunds %}
+  <tr class="table-light"><td colspan="7">
+    <div class="row g-2 small">
+      {% if co.payments %}<div class="col-12">{% for p in co.payments %}<span class="me-3">#{{ p.id }} {{ p.amount|money(p.currency) }} {{ ui.status(p.status) }} {{ p.method or '' }} {{ p.provider_ref or '' }}{% if p.verified_server_side %} <i class="bi bi-patch-check text-success" title="Verified server-side"></i>{% endif %}</span>{% endfor %}</div>{% endif %}
+      {% if co.refunds %}<div class="col-12">{% for r in co.refunds %}<span class="me-3">Refund {{ r.amount|money(r.currency) }} ({{ r.charged_to }}) – {{ r.reason }}</span>{% endfor %}</div>{% endif %}
+      {% if co.status in ['confirmed','delivered','completed'] and outstanding[co.id] > 0 %}
+      <div class="col-lg-6"><form method="post" action="{{ url_for('admin.customer_order_action', order_id=co.id, action='payment') }}" class="row g-1" data-confirm="Record this payment as received and verified?">{{ ui.csrf() }}
+        <div class="col-4"><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" max="{{ outstanding[co.id] }}" name="amount" value="{{ outstanding[co.id] }}" required aria-label="Amount"></div>
+        <div class="col-4"><select class="form-select form-select-sm" name="method" aria-label="Method">{% for k, l in payment_methods.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+        <div class="col-4"><input class="form-control form-control-sm" name="reference" placeholder="Reference" maxlength="120"></div>
+        <div class="col-8"><input class="form-control form-control-sm" name="notes" placeholder="Notes" maxlength="500"></div>
+        <div class="col-4"><button class="btn btn-sm btn-primary w-100" type="submit">Record payment</button></div>
+      </form></div>
+      {% set open_pay = co.payments|selectattr('status','in',['pending','initiated'])|list %}
+      {% if not open_pay %}
+      <div class="col-lg-2"><form method="post" action="{{ url_for('admin.customer_order_action', order_id=co.id, action='request-payment') }}">{{ ui.csrf() }}<button class="btn btn-sm btn-outline-primary w-100" type="submit">Request payment</button></form></div>
+      {% endif %}
+      {% for p in open_pay %}
+      <div class="col-lg-4"><form method="post" action="{{ url_for('admin.customer_order_action', order_id=co.id, action='payment-failed') }}" class="input-group input-group-sm" data-confirm="Mark payment request #{{ p.id }} as failed?">{{ ui.csrf() }}
+        <input type="hidden" name="payment_id" value="{{ p.id }}"><input class="form-control" name="reason" placeholder="Failure reason" maxlength="300">
+        <button class="btn btn-outline-danger" type="submit">Mark #{{ p.id }} failed</button></form></div>
+      {% endfor %}
+      {% endif %}
+      {% if refundable[co.id] > 0 %}
+      <div class="col-lg-6"><form method="post" action="{{ url_for('admin.customer_order_action', order_id=co.id, action='refund') }}" class="row g-1" data-confirm="Record this refund? Make sure the money has been returned to the customer.">{{ ui.csrf() }}
+        <div class="col-3"><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" max="{{ refundable[co.id] }}" name="amount" placeholder="Amount" required aria-label="Refund amount"></div>
+        <div class="col-5"><input class="form-control form-control-sm" name="reason" placeholder="Refund reason" required maxlength="500"></div>
+        <div class="col-4"><select class="form-select form-select-sm" name="charged_to" aria-label="Borne by"><option value="vendor">Vendor bears</option><option value="platform">Platform bears</option></select></div>
+        <div class="col-8"><input class="form-control form-control-sm" name="reference" placeholder="Refund reference" maxlength="120"></div>
+        <div class="col-4"><button class="btn btn-sm btn-outline-warning w-100" type="submit">Record refund</button></div>
+      </form></div>
+      {% endif %}
+    </div>
+  </td></tr>
+  {% endif %}
+{% else %}<tr><td colspan="7">{{ ui.empty('receipt', 'No customer orders yet') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <div class="card h-100"><div class="card-header d-flex justify-content-between">Quality inspections <a class="small" href="{{ url_for('admin.inspect', go_id=go.id) }}">Record inspection</a></div><div class="card-body">
+      <p class="small {{ 'text-success' if clearance[0] else 'text-muted' }}">{{ 'Cleared for packing.' if clearance[0] else clearance[1] }}</p>
+      <ul class="list-unstyled small mb-0">
+      {% for i in inspections %}<li class="mb-1">{{ ui.status(i.result) }} {{ i.stage|status_label }} · {{ Verification.LABELS.get(i.verification) }} · {{ i.created_at|localdt }}{% if i.placed_on_hold %} <span class="badge text-bg-danger">Hold</span>{% endif %}</li>
+      {% else %}<li class="text-muted">No inspections recorded.</li>{% endfor %}
+      </ul>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100"><div class="card-header">Deliveries</div>
+      <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Order</th><th>Method</th><th>Status</th><th>Delivered</th></tr></thead><tbody>
+      {% for d in deliveries %}<tr><td>{{ d.customer_order.reference }}</td><td>{{ d.method|status_label }}</td><td>{{ ui.status(d.status) }}</td><td class="small">{{ d.delivered_at|localdt }}{% if d.customer_confirmed_at %} <i class="bi bi-check2-circle text-success" title="Customer confirmed"></i>{% endif %}</td></tr>
+      {% else %}<tr><td colspan="4" class="text-muted small">No deliveries scheduled yet.</td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-header">Financials</div><div class="card-body">
+  <div class="row g-3 small">
+    <div class="col-6 col-md-3"><div class="small-label">Order value</div><div class="fw-bold money">{{ fin.order_value|money(go.currency) }}</div></div>
+    <div class="col-6 col-md-3"><div class="small-label">Service fees</div><div class="fw-bold money">{{ fin.service_fees|money(go.currency) }}</div></div>
+    <div class="col-6 col-md-3"><div class="small-label">Paid</div><div class="fw-bold money">{{ fin.paid|money(go.currency) }}</div></div>
+    <div class="col-6 col-md-3"><div class="small-label">Refunds</div><div class="fw-bold money">{{ fin.refunds|money(go.currency) }}</div></div>
+    <div class="col-6 col-md-3"><div class="small-label">Commission</div><div class="fw-bold money">{{ fin.commission.amount|money(go.currency) if fin.commission else '—' }}</div>{% if fin.commission %}<div class="text-muted">{{ fin.commission.rate_percent }}% of {{ fin.commission.base_amount|money(go.currency) }}</div>{% endif %}</div>
+    <div class="col-6 col-md-3"><div class="small-label">Vendor payable</div><div class="fw-bold money">{{ fin.settlement.net_payable|money(go.currency) if fin.settlement else '—' }}</div>{% if fin.settlement %}{{ ui.status(fin.settlement.status) }}{% endif %}</div>
+    <div class="col-6 col-md-3"><div class="small-label">Recorded costs</div><div class="fw-bold money">{{ fin.cost_total|money(go.currency) }}</div></div>
+  </div>
+  {% if fin.costs %}<ul class="small mt-2 mb-0">{% for c in fin.costs %}<li>{{ cost_categories.get(c.category) }}: {{ c.amount|money(c.currency) }} — {{ c.description }}{% if c.vendor_id %} (founder vendor){% endif %}</li>{% endfor %}</ul>{% endif %}
+  <hr>
+  <form method="post" action="{{ url_for('admin.group_order_action', go_id=go.id, action='cost') }}" class="row g-2">{{ ui.csrf() }}
+    <div class="col-md-3"><select class="form-select form-select-sm" name="category" aria-label="Category">{% for k, l in cost_categories.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="amount" placeholder="Amount" required></div>
+    <div class="col-md-4"><input class="form-control form-control-sm" name="description" placeholder="Description" required maxlength="300"></div>
+    {% if founder %}<div class="col-md-2 form-check ms-2"><input class="form-check-input" type="checkbox" name="founder" value="1" id="cf"><label class="form-check-label small" for="cf">Founder vendor cost</label></div>{% endif %}
+    <div class="col-md-auto"><button class="btn btn-sm btn-outline-primary" type="submit">Record cost</button></div>
+  </form>
+</div></div>
+{% endblock %}

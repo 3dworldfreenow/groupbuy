@@ -1,0 +1,91 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Vendor dashboard{% endblock %}
+{% block vendor_content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">{{ vendor.business_name }}</h1>
+    <div>{{ ui.status(vendor.status) }} {{ ui.platform_badge(vendor.is_platform_owned) }}</div>
+  </div>
+  <a class="btn btn-outline-primary" href="{{ url_for('vendor.opportunities') }}"><i class="bi bi-megaphone"></i> View open orders</a>
+</div>
+
+{% if vendor.status == 'pending' %}
+<div class="alert alert-warning"><i class="bi bi-hourglass-split"></i> Your application is awaiting administrator review. You cannot bid on live orders until approved.
+  <a href="{{ url_for('vendor.verification') }}" class="alert-link">Complete your business verification</a>.</div>
+{% elif vendor.status in ('suspended', 'rejected') %}
+<div class="alert alert-danger"><i class="bi bi-exclamation-octagon"></i> Your vendor account is <strong>{{ vendor.status }}</strong>.
+  {% if vendor.status_reason %}Reason: {{ vendor.status_reason }}.{% endif %} <a href="{{ url_for('public.contact') }}" class="alert-link">Contact the platform team</a>.</div>
+{% endif %}
+
+<div class="card mb-3">
+  <div class="card-body py-2 small">
+    {% if multi_vendor %}
+      <i class="bi bi-people text-primary"></i> <strong>Stage 2 — multi-vendor bidding is enabled.</strong> Approved vendors compete with sealed bids scored on price, quality, reliability and ratings.
+    {% else %}
+      <i class="bi bi-person-badge text-primary"></i> <strong>Stage 1 — founder-operated vendor.</strong> Only the platform-owned vendor publishes offers at the moment.
+      {% if not vendor.is_platform_owned %}You can prepare your profile and catalogue now; bidding opens when the administrator enables multi-vendor bidding.{% endif %}
+    {% endif %}
+    {% if vendor.is_platform_owned %}
+      <div class="mt-1 text-muted">This account is operated by the platform owner and follows the same published product, pricing, quality and award rules as every other vendor. Customers see this disclosure on every offer.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">{{ ui.stat('Open opportunities', opportunities|length, 'megaphone') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Active bids', active_bids|length, 'file-earmark-text') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Awarded orders in progress', awarded|length, 'trophy') }}</div>
+  <div class="col-6 col-xl-3">{{ ui.stat('Quality score', quality_score ~ '/100', 'clipboard-check', history.inspections ~ ' platform inspections') }}</div>
+  <div class="col-6 col-xl-4">{{ ui.stat('Completed order value', finance.completed_value|money, 'bag-check') }}</div>
+  <div class="col-6 col-xl-4">{{ ui.stat('Commission charged', finance.commission_total|money, 'percent') }}</div>
+  <div class="col-12 col-xl-4">{{ ui.stat('Settlements pending', finance.payable_pending|money, 'cash-stack', 'Paid to date: ' ~ (finance.paid_total|money)) }}</div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-calendar-event"></i> Fulfilment deadlines</div>
+      <div class="card-body">
+        {% if awarded %}
+        <ul class="list-unstyled mb-0">
+          {% for go in awarded %}
+          <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div>
+              <a href="{{ url_for('vendor.awarded_detail', go_id=go.id) }}" class="fw-semibold">{{ go.title }}</a>
+              <div class="small text-muted">Deliver by {{ go.delivery_window_end|localdt }} ({{ go.delivery_window_end|timeleft }})</div>
+            </div>
+            {{ ui.status(go.status) }}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+          {% call ui.empty('calendar-check', 'No orders to fulfil', 'Awarded orders appear here with their delivery deadlines.') %}{% endcall %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-megaphone"></i> Open bidding opportunities</div>
+      <div class="card-body">
+        {% if opportunities %}
+        <ul class="list-unstyled mb-0">
+          {% for go in opportunities[:6] %}
+          <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div>
+              <div class="fw-semibold">{{ go.title }}</div>
+              <div class="small text-muted">{{ go.group.location.label }} · closes {{ go.bidding_deadline|timeleft }}</div>
+            </div>
+            <a class="btn btn-sm {{ 'btn-outline-primary' if go.id in bid_ids else 'btn-primary' }}" href="{{ url_for('vendor.bid', go_id=go.id) }}">{{ 'Revise bid' if go.id in bid_ids else 'Bid' }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+          {% call ui.empty('inbox', 'No open opportunities', 'Group orders open for offers in your service area appear here.') %}{% endcall %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

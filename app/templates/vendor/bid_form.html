@@ -1,0 +1,103 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}{{ 'Revise' if bid else 'Submit' }} bid{% endblock %}
+{% block vendor_content %}
+<a href="{{ url_for('vendor.opportunities') }}" class="small"><i class="bi bi-arrow-left"></i> Opportunities</a>
+<h1 class="h3 mt-1 mb-1">{{ 'Revise your bid' if bid else 'Submit a sealed bid' }}</h1>
+<p class="text-muted mb-2">{{ go.title }} · {{ go.group.name }} · {{ go.group.location.label }}</p>
+<div class="alert alert-light border small">
+  <i class="bi bi-shield-lock"></i> <strong>Sealed bidding.</strong> Competing vendors, customers and platform administrators cannot see your prices until bidding closes on
+  <strong>{{ go.bidding_deadline|localdt }}</strong> ({{ go.bidding_deadline|timeleft }}). You may revise or withdraw before then.
+  {% if bid %}Current revision: {{ bid.revision }} ({{ bid.status|status_label }}).{% endif %}
+</div>
+{% if vendor.is_platform_owned %}
+<div class="disclosure p-3 mb-3 small rounded"><i class="bi bi-building"></i> <strong>Platform-owned vendor disclosure:</strong> {{ disclosure }}</div>
+{% endif %}
+
+<form method="post" data-bid-form data-currency="{{ currency_symbol }}" data-home-orders="{{ home_orders }}">
+  {{ ui.csrf() }}
+  <div class="card mb-3">
+    <div class="card-header">Items {% if go.allow_partial %}<span class="small text-muted fw-normal">— partial offers allowed (minimum {{ go.min_fulfilment_percent|pct }} of each item)</span>{% else %}<span class="small text-muted fw-normal">— full quantities required</span>{% endif %}</div>
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr><th>Product</th><th>Required</th><th>Offered qty</th><th>Unit price ({{ currency_symbol }})</th><th>Origin</th><th class="text-end">Line</th></tr></thead>
+        <tbody>
+        {% for i in go.items if not i.dropped %}
+          {% set ex = existing_items.get(i.id) %}
+          <tr data-bid-row>
+            <td>{{ i.product.emoji or '' }} {{ i.product.name }}{% if i.min_grade %}<div class="small text-muted">Min grade {{ i.min_grade.label }}</div>{% endif %}</td>
+            <td class="money">{{ i.frozen_qty|qty }} {{ i.product.unit }}</td>
+            <td style="min-width:110px"><input class="form-control form-control-sm" name="qty_{{ i.id }}" data-bid-qty inputmode="decimal"
+                 value="{{ (ex.offered_qty if ex else i.frozen_qty)|qty }}" {% if not go.allow_partial %}readonly{% endif %} required></td>
+            <td style="min-width:110px"><input class="form-control form-control-sm" name="price_{{ i.id }}" data-bid-price inputmode="decimal"
+                 value="{{ ex.unit_price if ex else (suggestions.get(i.id) or '') }}" required>
+              {% if suggestions.get(i.id) and not ex %}<div class="form-text">From your catalogue tier</div>{% endif %}</td>
+            <td style="min-width:120px"><input class="form-control form-control-sm" name="origin_{{ i.id }}" maxlength="120" value="{{ ex.origin if ex and ex.origin else '' }}"></td>
+            <td class="text-end money" data-bid-line>—</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">Quality and delivery terms</div>
+    <div class="card-body row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="grade_id">Quality grade offered</label>
+        <select class="form-select" id="grade_id" name="grade_id" required>
+          {% for g in grades %}<option value="{{ g.id }}" {{ 'selected' if bid and bid.grade_id == g.id }}>{{ g.label }} — max {{ g.max_defect_percent|pct }} defects</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="origin">Product origin (if known)</label>
+        <input class="form-control" id="origin" name="origin" maxlength="160" value="{{ bid.origin if bid and bid.origin else '' }}" placeholder="Vendor-declared, e.g. Kolar district farms">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="substitution_policy">Substitution policy</label>
+        <select class="form-select" id="substitution_policy" name="substitution_policy">
+          {% for k, label in policies.items() %}<option value="{{ k }}" {{ 'selected' if bid and bid.substitution_policy == k }}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="delivery_fee">Group delivery fee</label>
+        <input class="form-control" id="delivery_fee" name="delivery_fee" inputmode="decimal" value="{{ bid.delivery_fee if bid else '0.00' }}">
+        <div class="form-text">Shared by customers in proportion to their order.</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="home_delivery_fee">Home delivery fee / order</label>
+        <input class="form-control" id="home_delivery_fee" name="home_delivery_fee" inputmode="decimal" value="{{ bid.home_delivery_fee if bid else '0.00' }}">
+        <div class="form-text">{{ home_orders }} customer(s) chose home delivery.</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="estimated_delivery_at">Estimated delivery</label>
+        <input class="form-control" type="datetime-local" id="estimated_delivery_at" name="estimated_delivery_at" required
+               value="{{ (bid.estimated_delivery_at if bid else go.delivery_window_start)|dtinput }}">
+        <div class="form-text">Window: {{ go.delivery_window_start|localdt }} – {{ go.delivery_window_end|localdt }}</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="expires_at">Bid valid until</label>
+        <input class="form-control" type="datetime-local" id="expires_at" name="expires_at" required
+               value="{{ (bid.expires_at if bid and bid.expires_at >= min_expiry else min_expiry)|dtinput }}">
+        <div class="form-text">Must be at least {{ min_expiry|localdt }}.</div>
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="notes">Notes for the group (optional)</label>
+        <textarea class="form-control" id="notes" name="notes" rows="2" maxlength="1000">{{ bid.notes if bid and bid.notes else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <div>Goods subtotal: <strong class="money" data-bid-subtotal>—</strong></div>
+        <div>Estimated customer cost incl. delivery: <strong class="money" data-bid-total>—</strong></div>
+        <div class="small text-muted">Your capacity per order: {{ vendor.capacity_per_order|qty if vendor.capacity_per_order else 'not declared' }} units. Commission applies to the goods value at completion.</div>
+      </div>
+      <button class="btn btn-primary btn-lg" type="submit" data-loading-text="Submitting…"><i class="bi bi-send"></i> {{ 'Submit revision' if bid else 'Submit sealed bid' }}</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

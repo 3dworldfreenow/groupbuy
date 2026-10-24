@@ -1,0 +1,196 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Fulfil {{ go.title }}{% endblock %}
+{% block vendor_content %}
+<a href="{{ url_for('vendor.awarded') }}" class="small"><i class="bi bi-arrow-left"></i> Awarded orders</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-1 mb-2">
+  <div>
+    <h1 class="h3 mb-1">{{ go.title }}</h1>
+    <div class="small text-muted">{{ go.group.name }} · {{ go.group.location.label }} · deliver {{ go.delivery_window_start|localdt }} – {{ go.delivery_window_end|localdt('%H:%M') }}</div>
+  </div>
+  {{ ui.status(go.status) }}
+</div>
+<div class="mb-3">{{ ui.timeline(go) }}</div>
+{% if go.status == 'on_hold' %}
+<div class="alert alert-danger"><i class="bi bi-pause-circle"></i> <strong>On hold:</strong> {{ go.hold_reason }}. An administrator must release the hold.</div>
+{% endif %}
+{% if award %}
+<div class="card mb-3"><div class="card-body small">
+  <div class="small-label">Award decision</div>
+  {{ award.explanation }}
+  <div class="mt-1 text-muted">Your bid: {{ bid.subtotal|money(bid.currency) }} goods + {{ bid.delivery_fee|money(bid.currency) }} delivery · {{ bid.grade.label }} · commission {{ bid.commission_rate|pct(2) }}</div>
+</div></div>
+{% endif %}
+
+<div class="card mb-3">
+  <div class="card-header">Next step</div>
+  <div class="card-body">
+    {% if go.status == 'awarded' %}
+      <p class="mb-2">Accept the award to start sourcing, or decline if you can no longer fulfil it (declines count in your cancellation history).</p>
+      <div class="d-flex flex-wrap gap-2">
+        <form method="post" action="{{ url_for('vendor.awarded_action', go_id=go.id, action='accept') }}">{{ ui.csrf() }}
+          <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle"></i> Accept award</button></form>
+        <form method="post" action="{{ url_for('vendor.awarded_action', go_id=go.id, action='decline') }}" class="d-flex gap-2" data-confirm="Decline this award? The group will choose another offer.">
+          {{ ui.csrf() }}<input class="form-control" name="reason" placeholder="Reason for declining" required maxlength="500">
+          <button class="btn btn-outline-danger" type="submit">Decline</button></form>
+      </div>
+    {% elif go.status == 'sourcing' %}
+      <p class="mb-2">Record your batches and a self-check below, then mark the order ready for the platform's quality inspection.</p>
+      <form method="post" action="{{ url_for('vendor.awarded_action', go_id=go.id, action='start-qc') }}">{{ ui.csrf() }}
+        <button class="btn btn-primary" type="submit"><i class="bi bi-clipboard-check"></i> Ready for quality check</button></form>
+    {% elif go.status == 'quality_check' %}
+      {% if clearance[0] %}
+        <p class="mb-2 text-success"><i class="bi bi-check-circle"></i> Quality clearance passed. Unconfirmed customer orders ({{ pending|length }}) will be cancelled when you pack.</p>
+      {% else %}
+        <p class="mb-2 text-warning"><i class="bi bi-exclamation-triangle"></i> {{ clearance[1] }}</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('vendor.awarded_action', go_id=go.id, action='packed') }}" data-confirm="Mark the order as packed?">{{ ui.csrf() }}
+        <button class="btn btn-primary" type="submit" {{ 'disabled' if not clearance[0] }}><i class="bi bi-box-seam"></i> Mark packed</button></form>
+    {% elif go.status == 'packed' %}
+      <form method="post" action="{{ url_for('vendor.awarded_action', go_id=go.id, action='dispatch') }}" class="d-flex flex-wrap gap-2">{{ ui.csrf() }}
+        <input class="form-control" style="max-width:260px" name="assigned_to" placeholder="Driver / delivery person" maxlength="120">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-truck"></i> Dispatch</button></form>
+    {% elif go.status == 'dispatched' %}
+      <p class="mb-0">Out for delivery. Update each delivery below; the order completes when every delivery is resolved.</p>
+    {% elif go.status in ('delivered', 'closed') %}
+      <p class="mb-0 text-success"><i class="bi bi-check2-all"></i> Delivered. {% if go.status == 'closed' %}Order closed — see your <a href="{{ url_for('vendor.finance') }}">settlement</a>.{% else %}The platform closes the order after the complaint window.{% endif %}</p>
+    {% else %}
+      <p class="mb-0 text-muted">No action available at this status.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-header">Packing list (confirmed)</div>
+      <ul class="list-group list-group-flush">
+        {% for r in packing %}<li class="list-group-item d-flex justify-content-between"><span>{{ r.product.emoji or '' }} {{ r.product.name }}</span><strong class="money">{{ r.qty|qty }} {{ r.product.unit }}</strong></li>
+        {% else %}<li class="list-group-item text-muted small">No confirmed quantities yet.</li>{% endfor %}
+      </ul>
+      {% if pending %}<div class="card-footer small text-muted">{{ pending|length }} customer(s) have not confirmed yet.</div>{% endif %}
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-header">Confirmed customer orders</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Order</th><th>Customer</th><th>Method</th><th>Items</th></tr></thead>
+          <tbody>
+          {% for co in confirmed %}
+          <tr>
+            <td>{{ co.reference }}</td>
+            <td>{{ co.user.full_name }}</td>
+            <td class="small">{% if co.fulfilment_method == 'home' %}<i class="bi bi-house"></i> {{ co.delivery_address_snapshot or '' }}{% else %}<i class="bi bi-geo-alt"></i> Pickup{% endif %}</td>
+            <td class="small">{% for it in co.items %}{{ it.product.name }} {{ it.allocated_qty|qty }}{{ ', ' if not loop.last }}{% endfor %}</td>
+          </tr>
+          {% else %}<tr><td colspan="4" class="text-muted small">No confirmed orders yet.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 class="h5 mt-4" id="quality">Batches and quality</h2>
+{% set editable = go.status in ('sourcing', 'quality_check', 'on_hold') %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Batches / lots <span class="small text-muted fw-normal">(vendor-declared)</span></div>
+      <div class="card-body">
+        {% for b in batches %}
+        <div class="border-bottom pb-2 mb-2 small">
+          <strong>{{ b.lot_code }}</strong> · {{ b.product.name }} {{ b.quantity|qty }} {{ b.product.unit }}{% if b.grade %} · {{ b.grade.code }}{% endif %}
+          <div class="text-muted">{% if b.source_name %}Source: {{ b.source_name }} · {% endif %}{% if b.origin %}Origin: {{ b.origin }} · {% endif %}{% if b.harvest_date %}Harvested {{ b.harvest_date }} · {% endif %}Sourced {{ b.sourced_on or '—' }}</div>
+          {% if b.notes %}<div>{{ b.notes }}</div>{% endif %}
+          {{ ui.photos(batch_photos[b.id]) }}
+        </div>
+        {% else %}<p class="small text-muted">No batches recorded.</p>{% endfor %}
+        {% if editable %}
+        <form method="post" action="{{ url_for('vendor.add_batch', go_id=go.id) }}" enctype="multipart/form-data" class="row g-2">
+          {{ ui.csrf() }}
+          <div class="col-6"><select class="form-select form-select-sm" name="product_id" required>{% for i in go.items if not i.dropped %}<option value="{{ i.product_id }}">{{ i.product.name }}</option>{% endfor %}</select></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="lot_code" placeholder="Lot code" required maxlength="60"></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="quantity" placeholder="Quantity" required inputmode="decimal"></div>
+          <div class="col-6"><select class="form-select form-select-sm" name="grade_id"><option value="">Grade (optional)</option>{% for g in grades %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="source_name" placeholder="Farm / market / supplier" maxlength="160"></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="origin" placeholder="Origin" maxlength="160"></div>
+          <div class="col-6"><label class="form-label small mb-0">Harvest date</label><input class="form-control form-control-sm" type="date" name="harvest_date"></div>
+          <div class="col-6"><label class="form-label small mb-0">Sourced on</label><input class="form-control form-control-sm" type="date" name="sourced_on"></div>
+          <div class="col-12"><input class="form-control form-control-sm" name="notes" placeholder="Notes" maxlength="500"></div>
+          <div class="col-12"><label class="form-label small mb-0">Batch photos</label><input class="form-control form-control-sm" type="file" name="photos" multiple accept=".jpg,.jpeg,.png,.webp"></div>
+          <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Record batch</button></div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Inspections</div>
+      <div class="card-body">
+        {% for insp in inspections %}
+        <div class="border-bottom pb-2 mb-2 small">
+          {{ ui.status(insp.result) }} <span class="badge {{ 'text-bg-success' if insp.verification == 'platform_verified' else 'text-bg-light border' }}">{{ Verification.LABELS.get(insp.verification) }}</span>
+          <span class="text-muted">{{ insp.stage|replace('_', ' ') }} · {{ insp.created_at|localdt }}</span>
+          {% for it in insp.items %}<div>{{ it.product.name }}: received {{ it.received_qty|qty }}, accepted {{ it.accepted_qty|qty }}, rejected {{ it.rejected_qty|qty }}</div>{% endfor %}
+          {% if insp.defect_notes %}<div class="text-danger">{{ insp.defect_notes }}</div>{% endif %}
+          {{ ui.photos(photos[insp.id]) }}
+        </div>
+        {% else %}<p class="small text-muted">No inspections yet.</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if editable %}
+<div class="card mt-3">
+  <div class="card-header">Record a vendor-declared self-check <span class="small fw-normal text-muted">— does not replace the platform inspection</span></div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('vendor.self_inspection', go_id=go.id) }}" enctype="multipart/form-data">
+      {{ ui.csrf() }}
+      <div class="row g-2 mb-2">
+        <div class="col-md-4"><label class="form-label small">Result</label>
+          <select class="form-select" name="result"><option value="pass">Pass</option><option value="conditional">Conditional pass</option><option value="fail">Fail</option></select></div>
+        <div class="col-md-4"><label class="form-label small">Batch (optional)</label>
+          <select class="form-select" name="batch_id"><option value="">—</option>{% for b in batches %}<option value="{{ b.id }}">{{ b.lot_code }}</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label small">Spoilage quantity</label><input class="form-control" name="spoilage_qty" value="0" inputmode="decimal"></div>
+      </div>
+      <div class="row row-cols-1 row-cols-md-2 g-1 mb-2">
+        {% for key, label in checklist %}
+        <div class="col"><div class="form-check"><input class="form-check-input" type="checkbox" name="check_{{ key }}" value="1" id="chk_{{ key }}"><label class="form-check-label small" for="chk_{{ key }}">{{ label }}</label></div></div>
+        {% endfor %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Product</th><th>Expected</th><th>Received</th><th>Accepted</th><th>Rejected</th><th>Notes</th></tr></thead>
+          <tbody>
+          {% for i in go.items if not i.dropped %}
+          {% set expected = (packing|selectattr('product.id', 'equalto', i.product_id)|map(attribute='qty')|first) or i.frozen_qty %}
+          <tr>
+            <td>{{ i.product.name }}</td>
+            <td><input class="form-control form-control-sm" name="expected_{{ i.id }}" value="{{ expected|qty }}"></td>
+            <td><input class="form-control form-control-sm" name="received_{{ i.id }}" value="{{ expected|qty }}"></td>
+            <td><input class="form-control form-control-sm" name="accepted_{{ i.id }}" value="{{ expected|qty }}"></td>
+            <td><input class="form-control form-control-sm" name="rejected_{{ i.id }}" value="0"></td>
+            <td><input class="form-control form-control-sm" name="notes_{{ i.id }}" maxlength="300"></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mb-2"><label class="form-label small">Defect notes (required if failed)</label><textarea class="form-control" name="defect_notes" rows="2"></textarea></div>
+      <div class="mb-2"><label class="form-label small">Photos</label><input class="form-control" type="file" name="photos" multiple accept=".jpg,.jpeg,.png,.webp"></div>
+      <button class="btn btn-outline-primary" type="submit">Save self-check</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if deliveries %}
+<h2 class="h5 mt-4">Deliveries</h2>
+<div class="card">{% include "vendor/_deliveries_table.html" %}</div>
+{% endif %}
+{% endblock %}

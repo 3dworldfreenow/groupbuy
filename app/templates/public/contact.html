@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Contact{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <h1 class="h2">Contact us</h1>
+    <p class="text-muted">Questions about a group, an order, becoming a vendor or a privacy request? Send us a message.</p>
+    <p><i class="bi bi-envelope"></i> <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+    <p class="small text-muted">For problems with a delivered order, please use <em>Report a problem</em> on the order page so we can attach it to the order and resolve it faster.</p>
+  </div>
+  <div class="col-lg-7">
+    <div class="card"><div class="card-body">
+      <form method="post" novalidate>
+        {{ form.csrf_token }}
+        <div class="row">
+          {{ ui.field(form.name, cls="col-md-6") }}
+          {{ ui.field(form.email, cls="col-md-6") }}
+        </div>
+        {{ ui.field(form.subject) }}
+        {{ ui.field(form.message) }}
+        <button class="btn btn-primary" type="submit" data-loading-text="Sending…"><i class="bi bi-send"></i> Send message</button>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Products & grades{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Product and category management</h1>
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">Products <a class="btn btn-sm btn-primary" href="{{ url_for('admin.product_form') }}"><i class="bi bi-plus"></i> New product</a></div>
+  <div class="table-responsive"><table class="table mb-0"><thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>Per customer (min / step / max)</th><th>Status</th><th></th></tr></thead><tbody>
+  {% for p in products %}
+    <tr><td>{{ p.emoji or '' }} {{ p.name }}<div class="small text-muted">{{ p.slug }}</div></td><td>{{ p.category.name }}</td><td>{{ p.unit }}</td>
+      <td class="small">{{ p.min_customer_qty|qty }} / {{ p.qty_step|qty }} / {{ p.max_customer_qty|qty if p.max_customer_qty else '—' }}</td>
+      <td>{% if p.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+      <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.product_form', entity_id=p.id) }}">Edit</a></td></tr>
+  {% else %}<tr><td colspan="6">{{ ui.empty('basket', 'No products yet') }}</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">Categories <a class="btn btn-sm btn-primary" href="{{ url_for('admin.category_form') }}"><i class="bi bi-plus"></i> New</a></div>
+      <ul class="list-group list-group-flush">
+      {% for c in categories %}
+        <li class="list-group-item d-flex justify-content-between align-items-center"><span>{{ c.name }} <span class="small text-muted">({{ c.products|length }})</span>{% if not c.is_active %} <span class="badge text-bg-secondary">Inactive</span>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.category_form', entity_id=c.id) }}">Edit</a></li>
+      {% else %}<li class="list-group-item">{{ ui.empty('tags', 'No categories') }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">Quality grades & standards <a class="btn btn-sm btn-primary" href="{{ url_for('admin.grade_form') }}"><i class="bi bi-plus"></i> New</a></div>
+      <ul class="list-group list-group-flush">
+      {% for g in grades %}
+        <li class="list-group-item"><div class="d-flex justify-content-between"><strong>{{ g.label }} · rank {{ g.rank }}</strong><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.grade_form', entity_id=g.id) }}">Edit</a></div>
+          <div class="small text-muted">{{ g.specification }} Max defects {{ g.max_defect_percent }}%.{% if not g.is_active %} <span class="badge text-bg-secondary">Inactive</span>{% endif %}</div></li>
+      {% else %}<li class="list-group-item">{{ ui.empty('award', 'No grades') }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

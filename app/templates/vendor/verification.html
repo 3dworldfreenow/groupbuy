@@ -1,0 +1,75 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Business verification{% endblock %}
+{% block vendor_content %}
+<h1 class="h3 mb-1">Business verification</h1>
+<p class="text-muted">Status: {{ ui.status(vendor.status) }}{% if vendor.status_reason %} — {{ vendor.status_reason }}{% endif %}</p>
+<div class="alert alert-light border small">
+  <i class="bi bi-info-circle"></i> Administrators review your business profile and documents before approving you to bid.
+  Information you enter here is <strong>vendor-declared</strong> until a document is marked verified.
+  Produce can only be described as organic when an <strong>organic certificate</strong> has been verified by the platform.
+</div>
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Business profile</div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+          {{ ui.field(form.business_name) }}
+          <div class="row">
+            <div class="col-md-6">{{ ui.field(form.legal_name) }}</div>
+            <div class="col-md-6">{{ ui.field(form.registration_number) }}</div>
+            <div class="col-md-6">{{ ui.field(form.tax_id) }}</div>
+            <div class="col-md-6">{{ ui.field(form.food_licence_number) }}</div>
+            <div class="col-md-6">{{ ui.field(form.contact_phone) }}</div>
+            <div class="col-md-6">{{ ui.field(form.capacity_per_order, help="Maximum total quantity (in product units) you can supply for one group order.") }}</div>
+          </div>
+          {{ ui.field(form.business_address) }}
+          {{ ui.field(form.description) }}
+          <button class="btn btn-primary" type="submit">Save profile</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">Upload a document</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('vendor.upload_document') }}" enctype="multipart/form-data">
+          {{ ui.csrf() }}
+          <div class="mb-2">
+            <label class="form-label" for="doc_type">Document type</label>
+            <select class="form-select" id="doc_type" name="doc_type" required>
+              {% for key, label in doc_types.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="document">File (PDF, JPG, PNG or WEBP)</label>
+            <input class="form-control" type="file" id="document" name="document" accept=".pdf,.jpg,.jpeg,.png,.webp" required>
+            <div class="form-text">Documents are stored privately and visible only to you and platform administrators.</div>
+          </div>
+          <button class="btn btn-primary" type="submit" data-loading-text="Uploading…"><i class="bi bi-upload"></i> Upload</button>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">Submitted documents</div>
+      <ul class="list-group list-group-flush">
+        {% for d in vendor.documents %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between">
+            <a href="{{ url_for('files.vendor_document', doc_id=d.id) }}" target="_blank" rel="noopener">{{ doc_types.get(d.doc_type, d.doc_type) }}</a>
+            {{ ui.status(d.status) }}
+          </div>
+          <div class="small text-muted">{{ d.original_filename }} · uploaded {{ d.uploaded_at|localdt }}</div>
+          {% if d.review_notes %}<div class="small">Reviewer: {{ d.review_notes }}</div>{% endif %}
+        </li>
+        {% else %}
+        <li class="list-group-item">{% call ui.empty('file-earmark-arrow-up', 'No documents yet', 'Upload your business registration and food safety licence to speed up approval.') %}{% endcall %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

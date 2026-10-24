@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}My complaints{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">My complaints</h1>
+{% for c in complaints %}
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-1">
+      <span>#{{ c.id }} · {{ COMPLAINT_TYPES.get(c.complaint_type, c.complaint_type) }} · <a href="{{ url_for('customer.order_detail', order_id=c.customer_order_id) }}">{{ c.customer_order.reference }}</a></span>
+      {{ ui.status(c.status) }}
+    </div>
+    <div class="card-body small">
+      <div class="text-muted mb-1">{{ c.created_at|localdt }}{% if c.product %} · {{ c.product.name }}{% endif %}{% if c.quantity_affected %} · {{ c.quantity_affected|qty }} affected{% endif %}</div>
+      <p class="mb-2">{{ c.description }}</p>
+      {{ ui.photos(photos[c.id]) }}
+      {% if c.vendor_response %}<div class="border-start border-3 ps-2 mt-3"><div class="small-label">Vendor response</div>{{ c.vendor_response }}</div>{% endif %}
+      {% if c.resolution_notes %}<div class="border-start border-3 border-success ps-2 mt-3"><div class="small-label">Resolution{% if c.resolution %}: {{ c.resolution|replace('_', ' ') }}{% endif %}</div>{{ c.resolution_notes }}</div>{% endif %}
+    </div>
+  </div>
+{% else %}
+  <div class="card">{{ ui.empty("emoji-smile", "No complaints", "If something is wrong with a delivery, report it from the order page.") }}</div>
+{% endfor %}
+{% endblock %}

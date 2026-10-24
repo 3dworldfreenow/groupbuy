@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}How it works{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <h1 class="h2 mb-2">How group buying works</h1>
+    <p class="lead text-muted">Households combine their orders so suppliers can deliver bulk quantities efficiently. Every step is recorded and every rule is published before you order.</p>
+
+    <h2 class="h5 mt-4">For customers</h2>
+    <ol class="list-group list-group-numbered mb-4">
+      <li class="list-group-item"><strong>Create or join a group.</strong> The creator is the organiser. They pick products, target quantities, the order deadline, the delivery window and the award policy.</li>
+      <li class="list-group-item"><strong>Add your quantities.</strong> You can change them until the deadline. Per-customer limits and group maximums prevent over-ordering.</li>
+      <li class="list-group-item"><strong>Orders freeze at the deadline.</strong> Products that did not reach their minimum are removed and you are notified.</li>
+      <li class="list-group-item"><strong>Vendors submit sealed offers.</strong> No vendor — and no platform administrator — can see competing offer values before the bidding deadline.</li>
+      <li class="list-group-item"><strong>Compare and select.</strong> Offers are scored on total cost, quality, on-time delivery history, cancellation history and verified ratings. Depending on the group's policy, the organiser selects, members vote, or the top score wins automatically. The reason for every award is shown to members.</li>
+      <li class="list-group-item"><strong>Confirm and pay.</strong> You see your exact price breakdown and confirm. Payments are marked paid only after they are verified by the platform — never because of a browser redirect.</li>
+      <li class="list-group-item"><strong>Quality check and delivery.</strong> Produce is inspected before packing. Collect it at your community pickup point or choose home delivery.</li>
+      <li class="list-group-item"><strong>Report problems.</strong> Report shortages, damage or quality issues with photos. Refunds or replacements are decided before the order is closed.</li>
+    </ol>
+
+    <h2 class="h5">For vendors</h2>
+    <ul class="mb-4">
+      <li>Apply and submit verification documents. Only approved vendors can bid on live orders.</li>
+      <li>Declare your capacity, grades and prices. Information you declare is labelled as vendor-declared; claims such as "organic" are shown only with a verified certificate.</li>
+      <li>Bid with item-level prices, quality grade, delivery fee and estimated delivery time; revise or withdraw before the deadline.</li>
+      <li>Fulfil awarded orders, record batches and self-checks, and update delivery status. Settlements show commission and payable amounts clearly.</li>
+    </ul>
+
+    <h2 class="h5">About the platform-owned vendor</h2>
+    <div class="card disclosure mb-4"><div class="card-body">
+      <p class="mb-2">The platform owner operates the first vendor account so groups can be served from day one. That vendor follows the same published product, pricing, quality and award rules as every other vendor:</p>
+      <ul class="mb-0">
+        <li>It is always labelled "Platform-owned vendor" on offers.</li>
+        <li>Platform administrators cannot see competing bid values while bidding is open.</li>
+        <li>Administrators cannot hand-pick the winning offer; they can only apply the group's published rule.</li>
+        <li>It pays the same commission rate and is subject to the same inspections.</li>
+      </ul>
+    </div></div>
+
+    <h2 class="h5">Prices and fees</h2>
+    <p>Each customer order shows the produce subtotal, the customer's share of the group delivery fee, any home-delivery fee and any platform service fee. Totals always state that they include delivery and fees. Catalogue prices are indicative vendor list prices; the final price is set by the accepted offer.</p>
+  </div>
+</div>
+{% endblock %}

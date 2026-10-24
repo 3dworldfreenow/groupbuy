@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}New order round{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h1 class="h3">New order round for {{ group.name }}</h1>
+    <p class="text-muted">Set the deadline and delivery window. You'll add products on the next page.</p>
+    <form method="post">
+      {{ ui.csrf() }}
+      <div class="card mb-3"><div class="card-body">{% include "customer/_round_fields.html" %}</div></div>
+      <button class="btn btn-primary" type="submit">Create order round</button>
+      <a class="btn btn-link" href="{{ url_for('customer.my_groups') }}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+
+# Local configuration and secrets — never commit these
+.env
+.env.*
+!.env.example
+
+# Runtime data
+instance/
+uploads/
+backups/
+*.db
+*.sqlite3
+*.log

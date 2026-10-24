@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <aside class="col-lg-3 no-print">{% include "vendor/_nav.html" %}</aside>
+  <div class="col-lg-9">{% block vendor_content %}{% endblock %}</div>
+</div>
+{% endblock %}

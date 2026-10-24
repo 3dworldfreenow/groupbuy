@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Compare offers · {{ go.title }}{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('customer.group_order', go_id=go.id) }}">{{ go.title }}</a></li>
+  <li class="breadcrumb-item active" aria-current="page">Offers</li>
+</ol></nav>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+  <h1 class="h3 mb-0">Compare offers</h1>
+  {{ ui.status(go.status, go.status_label) }}
+</div>
+<p class="text-muted">Award policy: <strong>{{ SelectionMode.LABELS[go.selection_mode] }}</strong>. Scores combine total customer cost with quality, delivery reliability, cancellation history and verified ratings — price is never the only criterion.</p>
+
+{% if award %}
+<div class="alert alert-success">
+  <div class="fw-semibold"><i class="bi bi-award"></i> Selected: {{ award.vendor.business_name }} {{ ui.platform_badge(award.platform_owned_vendor) }}</div>
+  <div class="small">{{ award.explanation }}</div>
+  {% if award.disclosure %}<div class="disclosure p-2 small mt-2 text-dark">{{ award.disclosure }}</div>{% endif %}
+  {% if co and co.status == 'awaiting_confirmation' %}<a class="btn btn-primary btn-sm mt-2" href="{{ url_for('customer.order_detail', order_id=co.id) }}">Review &amp; confirm my order</a>{% endif %}
+</div>
+{% endif %}
+
+{% if go.status == 'selection' and is_organiser and go.selection_mode != 'organiser' and bids %}
+<div class="card mb-3 border-primary"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <div class="small">As organiser you can finalise the award. The winner is determined by the published rule ({{ 'most member votes, ties broken by score' if go.selection_mode == 'group_vote' else 'highest score' }}), not chosen by hand.</div>
+  <form method="post" action="{{ url_for('customer.award', go_id=go.id) }}" data-confirm="Finalise the award using the published rule?">
+    {{ ui.csrf() }}<button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle"></i> Apply award rule</button>
+  </form>
+</div></div>
+{% endif %}
+
+{% set total_votes = tally.values()|sum %}
+<div class="row g-3">
+{% for b in bids %}
+  {% set h = histories[b.id] %}{% set bd = b.breakdown %}
+  <div class="col-lg-6">
+    <div class="card h-100 {{ 'border-success' if b.status == 'awarded' }}">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-1">
+        <span>{% if loop.first %}<i class="bi bi-trophy text-warning"></i> {% endif %}{{ b.vendor.business_name }}</span>
+        <span>{{ ui.platform_badge(b.is_platform_owned) }} {{ ui.status(b.status) }}</span>
+      </div>
+      <div class="card-body">
+        {% if b.is_platform_owned %}<div class="disclosure p-2 small mb-2"><i class="bi bi-info-circle"></i> {{ disclosure }}</div>{% endif %}
+        <div class="d-flex justify-content-between align-items-end mb-2">
+          <div><div class="small-label">Total cost to the group</div><div class="fs-4 fw-bold price-tag money">{{ costs[b.id]|money(b.currency) }}</div>
+            <div class="small text-muted">incl. delivery{% if go.service_fee_percent and go.service_fee_percent > 0 %} and service fee{% endif %}</div></div>
+          <div class="text-end"><div class="small-label">Score</div><div class="fs-4 fw-bold">{{ b.score }}<span class="fs-6 text-muted">/100</span></div></div>
+        </div>
+        <table class="table table-sm small">
+          <thead><tr><th>Product</th><th class="text-end">Qty</th><th class="text-end">Unit price</th><th class="text-end">Line</th></tr></thead>
+          <tbody>
+          {% for bi in b.items %}
+            <tr><td>{{ bi.product.name }}{% if bi.origin %}<div class="text-muted">Origin: {{ bi.origin }} (vendor-declared)</div>{% endif %}</td>
+              <td class="text-end">{{ bi.offered_qty|qty }} {{ bi.product.unit }}{% if bi.group_order_item.frozen_qty and bi.offered_qty < bi.group_order_item.frozen_qty %}<div class="text-warning">partial</div>{% endif %}</td>
+              <td class="text-end money">{{ bi.unit_price|money(b.currency) }}</td>
+              <td class="text-end money">{{ bi.line_total|money(b.currency) }}</td></tr>
+          {% endfor %}
+            <tr><td colspan="3">Produce subtotal</td><td class="text-end money">{{ b.subtotal|money(b.currency) }}</td></tr>
+            <tr><td colspan="3">Group delivery fee (shared)</td><td class="text-end money">{{ b.delivery_fee|money(b.currency) }}</td></tr>
+            <tr><td colspan="3">Home delivery fee (per home-delivery order)</td><td class="text-end money">{{ b.home_delivery_fee|money(b.currency) }}</td></tr>
+          </tbody>
+        </table>
+        <dl class="row small mb-2">
+          <dt class="col-5">Quality grade</dt><dd class="col-7">{{ b.grade.label }}<div class="text-muted">{{ b.grade.specification }}</div></dd>
+          <dt class="col-5">Origin</dt><dd class="col-7">{{ b.origin or 'Not stated' }}{% if b.origin %} <span class="text-muted">(vendor-declared)</span>{% endif %}</dd>
+          <dt class="col-5">Substitutions</dt><dd class="col-7">{{ SubstitutionPolicy.LABELS.get(b.substitution_policy, b.substitution_policy) }}</dd>
+          <dt class="col-5">Estimated delivery</dt><dd class="col-7">{{ b.estimated_delivery_at|localdt }}</dd>
+          <dt class="col-5">Offer valid until</dt><dd class="col-7">{{ b.expires_at|localdt }}</dd>
+          {% if verified_organic[b.id] %}<dt class="col-5">Certification</dt><dd class="col-7"><span class="badge text-bg-success">Organic certificate verified by platform</span></dd>{% endif %}
+          {% if b.notes %}<dt class="col-5">Vendor notes</dt><dd class="col-7">{{ b.notes }}</dd>{% endif %}
+        </dl>
+        {% if bd.components %}
+        <details class="small mb-2">
+          <summary>How this score was calculated</summary>
+          <table class="table table-sm mt-2 mb-1">
+            <thead><tr><th>Criterion</th><th class="text-end">Component (0–1)</th><th class="text-end">Weight</th></tr></thead>
+            <tbody>
+            {% for k, label in [('price','Total customer cost'),('quality','Quality compliance'),('on_time','On-time delivery'),('cancellation','Low cancellations'),('rating','Verified ratings')] %}
+              <tr><td>{{ label }}</td><td class="text-end">{{ bd.components.get(k, '—') }}</td><td class="text-end">{{ ((bd.weights.get(k, 0)|float) * 100)|round(0)|int }}%</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          <div class="text-muted">Vendors without history receive a neutral 0.75 for history-based criteria.</div>
+        </details>
+        {% endif %}
+        <div class="small text-muted">
+          Track record: {{ h.deliveries }} deliveries{% if h.on_time_rate is not none %} ({{ (h.on_time_rate * 100)|round(0)|int }}% on time){% endif %} ·
+          {% if h.avg_rating is not none %}{{ h.avg_rating }}★ from {{ h.rating_count }} verified rating(s){% else %}no ratings yet{% endif %} ·
+          {{ h.cancellations }} cancellation(s)
+        </div>
+      </div>
+      {% if go.status == 'selection' %}
+      <div class="card-footer bg-white d-flex flex-wrap gap-2 align-items-center">
+        {% if go.selection_mode == 'group_vote' %}
+          <span class="small text-muted me-auto">{{ tally.get(b.id, 0) }} of {{ total_votes }} vote(s)</span>
+          {% if co and co.status != 'cancelled' %}
+            {% if my_vote and my_vote.bid_id == b.id %}<span class="badge text-bg-success"><i class="bi bi-check2"></i> Your vote</span>
+            {% else %}
+            <form method="post" action="{{ url_for('customer.vote', go_id=go.id) }}">{{ ui.csrf() }}
+              <input type="hidden" name="bid_id" value="{{ b.id }}">
+              <button class="btn btn-sm btn-outline-primary" type="submit">{{ 'Change vote to this offer' if my_vote else 'Vote for this offer' }}</button></form>
+            {% endif %}
+          {% endif %}
+        {% elif go.selection_mode == 'organiser' and is_organiser and b.status == 'submitted' %}
+          <form method="post" action="{{ url_for('customer.award', go_id=go.id) }}" data-confirm="Select {{ b.vendor.business_name }} for the whole group?" class="ms-auto">
+            {{ ui.csrf() }}<input type="hidden" name="bid_id" value="{{ b.id }}">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-check2-circle"></i> Select this offer</button></form>
+        {% else %}
+          <span class="small text-muted">{{ 'The organiser selects the offer.' if go.selection_mode == 'organiser' else 'The highest score is awarded automatically.' }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+{% else %}
+  <div class="col-12"><div class="card">{{ ui.empty("inbox", "No eligible offers", "If no offers arrive, an administrator can reopen bidding or cancel this round.") }}</div></div>
+{% endfor %}
+</div>
+
+{% if ineligible %}
+<div class="card mt-4">
+  <div class="card-header">Offers not eligible</div>
+  <ul class="list-group list-group-flush small">
+    {% for b in ineligible %}
+      <li class="list-group-item d-flex justify-content-between flex-wrap gap-2"><span>{{ b.vendor.business_name }} {{ ui.platform_badge(b.is_platform_owned) }}</span>
+        <span>{{ ui.status(b.status) }} <span class="text-muted">{{ b.eligibility_notes or '' }}</span></span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

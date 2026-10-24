@@ -1,0 +1,18 @@
+{% import "partials/macros.html" as ui %}
+{{ ui.sidebar([
+  ('admin.dashboard','speedometer2','Dashboard'),
+  ('admin.users','people','Users'),
+  ('admin.vendors','shop','Vendors'),
+  ('admin.catalog','basket','Products & grades'),
+  ('admin.locations','geo-alt','Locations'),
+  ('admin.groups','people-fill','Buying groups'),
+  ('admin.group_orders','box-seam','Group orders'),
+  ('admin.bidding','hammer','Bidding'),
+  ('admin.quality','clipboard-check','Quality'),
+  ('admin.deliveries','truck','Deliveries'),
+  ('admin.complaints','exclamation-triangle','Complaints & refunds'),
+  ('admin.finance','cash-coin','Finance & reports'),
+  ('admin.settings','gear','Settings'),
+  ('admin.audit_log','journal-text','Audit log'),
+  ('admin.messages','envelope','Messages'),
+], request.endpoint) }}

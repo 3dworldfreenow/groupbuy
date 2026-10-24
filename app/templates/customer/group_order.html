@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}{{ go.title }}{% endblock %}
+{% block content %}
+{% set group = go.group %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('customer.my_groups') }}">My groups</a></li>
+  <li class="breadcrumb-item"><a href="{{ url_for('public.group_detail', group_id=group.id) }}">{{ group.name }}</a></li>
+  <li class="breadcrumb-item active" aria-current="page">{{ go.title }}</li>
+</ol></nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+  <div>
+    <h1 class="h3 mb-1">{{ go.title }}</h1>
+    <div class="text-muted small"><i class="bi bi-geo-alt"></i> {{ group.location.label }}{% if go.pickup_point %} · Pickup: {{ go.pickup_point.name }}{% endif %}</div>
+  </div>
+  {{ ui.status(go.status, go.status_label) }}
+</div>
+<div class="mb-4">{{ ui.timeline(go) }}</div>
+
+{% if go.status == 'on_hold' %}<div class="alert alert-danger"><i class="bi bi-pause-circle"></i> This order is on hold: {{ go.hold_reason }}</div>{% endif %}
+{% if go.status == 'cancelled' %}<div class="alert alert-secondary">Cancelled: {{ go.cancellation_reason }}</div>{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">{{ ui.stat("Buyers", progress.buyers, "people") }}</div>
+      <div class="col-6 col-md-3">{{ ui.stat("Combined demand", progress.total_qty|qty ~ " " ~ progress.units|join('/'), "basket") }}</div>
+      <div class="col-6 col-md-3">{{ ui.stat("Of target", progress.percent ~ "%", "bullseye") }}</div>
+      <div class="col-6 col-md-3">
+        {% if go.status == 'collecting' %}{{ ui.stat("Order deadline", go.order_deadline|timeleft, "clock", go.order_deadline|localdt) }}
+        {% elif go.status == 'bidding' %}{{ ui.stat("Offers close", go.bidding_deadline|timeleft, "clock", go.bidding_deadline|localdt) }}
+        {% else %}{{ ui.stat("Delivery", go.delivery_window_start|localdt('%d %b'), "truck", go.delivery_window_start|localdt('%H:%M') ~ "–" ~ go.delivery_window_end|localdt('%H:%M')) }}{% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Combined group demand</div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead><tr><th>Product</th><th class="text-end">Ordered</th><th class="text-end">Target</th><th class="text-end">Min / Max</th><th style="min-width:130px">Progress</th></tr></thead>
+          <tbody>
+          {% for r in progress.rows %}
+            <tr class="{{ 'text-muted' if r.item.dropped }}">
+              <td>{{ r.product.emoji or '' }} {{ r.product.name }}
+                {% if r.item.dropped %}<span class="badge text-bg-secondary">Below minimum — removed</span>{% endif %}
+                {% if r.item.min_grade %}<div class="small text-muted">Grade {{ r.item.min_grade.label }} or better</div>{% endif %}</td>
+              <td class="text-end">{{ r.aggregate|qty }} {{ r.product.unit }}</td>
+              <td class="text-end">{{ r.target|qty }}</td>
+              <td class="text-end small">{{ r.min|qty }} / {{ r.max|qty if r.max is not none else '—' }}</td>
+              <td>{{ ui.progress_bar(r.percent, not r.meets_min) }}
+                <div class="small text-muted">{% if not r.meets_min %}Needs {{ r.min|qty }} {{ r.product.unit }} minimum{% elif r.remaining is not none %}{{ r.remaining|qty }} {{ r.product.unit }} left{% else %}{{ r.percent }}%{% endif %}</div></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">{{ ui.empty("box", "No products yet", "The organiser will add products and target quantities.") }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if member or current_user.has_role('customer') %}
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Your order</span>
+        {% if co %}{{ ui.status(co.status, co.status_label) }}{% endif %}
+      </div>
+      <div class="card-body">
+        {% if co and co.items %}
+          <ul class="list-unstyled mb-2">
+            {% for it in co.items %}<li>{{ it.product.emoji or '' }} {{ it.product.name }}: <strong>{{ it.quantity|qty }} {{ it.product.unit }}</strong>
+              {% if it.allocated_qty is not none and it.allocated_qty != it.quantity %}<span class="small text-muted">(allocated {{ it.allocated_qty|qty }})</span>{% endif %}</li>{% endfor %}
+          </ul>
+          <div class="small text-muted mb-2">{{ 'Home delivery' if co.fulfilment_method == 'home' else 'Community pickup' }}</div>
+        {% else %}
+          <p class="text-muted mb-2">You haven't added any quantities to this round.</p>
+        {% endif %}
+        <div class="d-flex flex-wrap gap-2">
+          {% if go.status == 'collecting' and go.order_deadline > now_utc %}
+            <a class="btn btn-primary" href="{{ url_for('customer.my_order', go_id=go.id) }}"><i class="bi bi-pencil"></i> {{ 'Edit my quantities' if co and co.items else 'Add my quantities' }}</a>
+          {% endif %}
+          {% if co and co.id and co.status not in ('open',) %}
+            <a class="btn btn-outline-primary" href="{{ url_for('customer.order_detail', order_id=co.id) }}">Order details &amp; payment</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-3">
+      <div class="card-header">Offers</div>
+      <div class="card-body">
+        {% if award %}
+          <p class="mb-1"><strong>{{ award.vendor.business_name }}</strong> {{ ui.platform_badge(award.platform_owned_vendor) }}</p>
+          <p class="small mb-2">{{ award.explanation }}</p>
+          {% if award.disclosure %}<div class="disclosure p-2 small mb-2"><i class="bi bi-info-circle"></i> {{ award.disclosure }}</div>{% endif %}
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('customer.offers', go_id=go.id) }}">View offer comparison</a>
+        {% elif offers_visible %}
+          <p class="mb-2">{{ bid_count }} offer(s) received. Compare them and {{ 'vote' if go.selection_mode == 'group_vote' else 'review the selection' }}.</p>
+          <a class="btn btn-primary btn-sm" href="{{ url_for('customer.offers', go_id=go.id) }}"><i class="bi bi-columns-gap"></i> Compare offers</a>
+        {% elif go.status == 'bidding' %}
+          <p class="mb-0 text-muted"><i class="bi bi-lock"></i> Offers are sealed until {{ go.bidding_deadline|localdt }}. Nobody — including platform staff — can see offer prices before then.</p>
+        {% else %}
+          <p class="mb-0 text-muted">Vendors make offers after the order deadline, once quantities are frozen.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header">Round details</div>
+      <ul class="list-group list-group-flush small">
+        <li class="list-group-item"><span class="small-label d-block">Order deadline</span>{{ go.order_deadline|localdt }}</li>
+        <li class="list-group-item"><span class="small-label d-block">Delivery window</span>{{ go.delivery_window_start|localdt }} – {{ go.delivery_window_end|localdt('%H:%M') }}</li>
+        <li class="list-group-item"><span class="small-label d-block">Fulfilment</span>{{ {'pickup':'Community pickup point','home':'Home delivery','both':'Pickup or home delivery'}[go.fulfilment_options] }}
+          {% if go.pickup_point %}<div class="text-muted">{{ go.pickup_point.name }}, {{ go.pickup_point.address_text }}</div>{% endif %}</li>
+        <li class="list-group-item"><span class="small-label d-block">Award policy</span>{{ SelectionMode.LABELS[go.selection_mode] }}</li>
+        <li class="list-group-item"><span class="small-label d-block">Partial fulfilment</span>{{ 'Allowed (min ' ~ go.min_fulfilment_percent|qty ~ '% per product)' if go.allow_partial else 'Not allowed — full quantities only' }}</li>
+        {% if go.service_fee_percent and go.service_fee_percent > 0 %}<li class="list-group-item"><span class="small-label d-block">Platform service fee</span>{{ go.service_fee_percent|qty }}% of produce subtotal</li>{% endif %}
+        {% if go.notes %}<li class="list-group-item"><span class="small-label d-block">Notes</span>{{ go.notes }}</li>{% endif %}
+      </ul>
+    </div>
+
+    {% if member %}
+    {% set link = url_for('customer.join_link', code=group.invite_code, _external=True) %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-share"></i> Invite neighbours</div>
+      <div class="card-body">
+        <div class="small-label">Invite code</div>
+        <div class="d-flex align-items-center gap-2 mb-2"><span class="invite-code fs-5">{{ group.invite_code }}</span>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-copy="{{ group.invite_code }}"><i class="bi bi-clipboard"></i> Copy</button></div>
+        <div class="input-group input-group-sm">
+          <input class="form-control" value="{{ link }}" readonly aria-label="Invite link">
+          <button type="button" class="btn btn-outline-primary" data-copy="{{ link }}"><i class="bi bi-link-45deg"></i> Copy link</button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-3">
+      <div class="card-header">Members ({{ members|length }})</div>
+      <ul class="list-group list-group-flush small">
+        {% for m in members %}<li class="list-group-item d-flex justify-content-between">{{ m.user.full_name }}{% if m.role == 'organiser' %}<span class="badge badge-soft">Organiser</span>{% endif %}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+{% if is_organiser %}
+<div class="card mt-2 border-primary" id="manage">
+  <div class="card-header text-primary"><i class="bi bi-sliders"></i> Organiser tools</div>
+  <div class="card-body">
+    {% if go.status in ('draft', 'collecting') %}
+    <h2 class="h6">Products in this round</h2>
+    <div class="table-responsive mb-3">
+      <table class="table table-sm">
+        <thead><tr><th>Product</th><th class="text-end">Target</th><th class="text-end">Min</th><th class="text-end">Max</th><th class="text-end">Per customer</th><th>Min grade</th><th></th></tr></thead>
+        <tbody>
+        {% for i in go.items %}
+          <tr>
+            <td>{{ i.product.emoji or '' }} {{ i.product.name }} <span class="text-muted small">({{ i.product.unit }})</span></td>
+            <td class="text-end">{{ i.target_qty|qty }}</td><td class="text-end">{{ i.min_qty|qty }}</td>
+            <td class="text-end">{{ i.max_qty|qty if i.max_qty is not none else '—' }}</td>
+            <td class="text-end">{{ i.per_customer_max|qty if i.per_customer_max is not none else '—' }}</td>
+            <td class="small">{{ i.min_grade.name if i.min_grade else 'Any' }}</td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('customer.remove_item', go_id=go.id, item_id=i.id) }}" data-confirm="Remove {{ i.product.name }}?">
+                {{ ui.csrf() }}<button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Remove"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+        {% else %}<tr><td colspan="7" class="text-muted small">No products yet — add the first one below.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <form method="post" action="{{ url_for('customer.save_item', go_id=go.id) }}" class="row g-2 align-items-end mb-4">
+      {{ ui.csrf() }}
+      <div class="col-md-3">
+        <label class="form-label small" for="product_id">Product</label>
+        <select class="form-select form-select-sm" id="product_id" name="product_id" required>
+          {% for i in go.items %}<option value="{{ i.product_id }}">{{ i.product.name }} (update)</option>{% endfor %}
+          {% for p in products %}<option value="{{ p.id }}">{{ p.name }} ({{ p.unit }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2"><label class="form-label small" for="target_qty">Target</label><input class="form-control form-control-sm" id="target_qty" name="target_qty" type="number" step="0.001" min="0.001" required></div>
+      <div class="col-6 col-md-1"><label class="form-label small" for="min_qty">Min</label><input class="form-control form-control-sm" id="min_qty" name="min_qty" type="number" step="0.001" min="0"></div>
+      <div class="col-6 col-md-1"><label class="form-label small" for="max_qty">Max</label><input class="form-control form-control-sm" id="max_qty" name="max_qty" type="number" step="0.001" min="0.001"></div>
+      <div class="col-6 col-md-2"><label class="form-label small" for="per_customer_max">Per customer</label><input class="form-control form-control-sm" id="per_customer_max" name="per_customer_max" type="number" step="0.001" min="0.001"></div>
+      <div class="col-md-2">
+        <label class="form-label small" for="min_grade_id">Min grade</label>
+        <select class="form-select form-select-sm" id="min_grade_id" name="min_grade_id">
+          <option value="">Any</option>
+          {% for g in grades %}<option value="{{ g.id }}">{{ g.label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-1"><button class="btn btn-primary btn-sm w-100" type="submit">Save</button></div>
+      <div class="col-12 form-text">Products below their minimum at the deadline are removed from the round. Leave min empty to use the platform default.</div>
+    </form>
+
+    <h2 class="h6">Schedule</h2>
+    <form method="post" action="{{ url_for('customer.update_schedule', go_id=go.id) }}" class="row g-2 align-items-end mb-4">
+      {{ ui.csrf() }}
+      <div class="col-md-3"><label class="form-label small" for="s_deadline">Order deadline</label><input class="form-control form-control-sm" type="datetime-local" id="s_deadline" name="order_deadline" value="{{ go.order_deadline|dtinput }}" required></div>
+      <div class="col-md-3"><label class="form-label small" for="s_start">Delivery from</label><input class="form-control form-control-sm" type="datetime-local" id="s_start" name="delivery_window_start" value="{{ go.delivery_window_start|dtinput }}" required></div>
+      <div class="col-md-3"><label class="form-label small" for="s_end">Delivery until</label><input class="form-control form-control-sm" type="datetime-local" id="s_end" name="delivery_window_end" value="{{ go.delivery_window_end|dtinput }}" required></div>
+      <div class="col-md-3"><button class="btn btn-outline-primary btn-sm w-100" type="submit">Update schedule</button></div>
+    </form>
+    {% endif %}
+
+    <div class="d-flex flex-wrap gap-2 align-items-start">
+      {% if go.status == 'draft' %}
+        <form method="post" action="{{ url_for('customer.open_order', go_id=go.id) }}">{{ ui.csrf() }}
+          <button class="btn btn-primary" type="submit"><i class="bi bi-unlock"></i> Open for orders</button></form>
+      {% endif %}
+      {% if go.status == 'collecting' %}
+        <form method="post" action="{{ url_for('customer.close_early', go_id=go.id) }}" data-confirm="Freeze all quantities now and request offers?">{{ ui.csrf() }}
+          <button class="btn btn-outline-primary" type="submit"><i class="bi bi-snow"></i> Close orders now</button></form>
+      {% endif %}
+      {% if go.status in ('draft', 'collecting', 'bidding', 'selection') %}
+        <form method="post" action="{{ url_for('customer.cancel_order', go_id=go.id) }}" class="d-flex gap-2" data-confirm="Cancel this order round for everyone?">
+          {{ ui.csrf() }}
+          <input class="form-control form-control-sm" name="reason" placeholder="Reason for cancelling" required maxlength="500" aria-label="Cancellation reason">
+          <button class="btn btn-outline-danger btn-sm text-nowrap" type="submit">Cancel round</button>
+        </form>
+      {% endif %}
+      {% if go.status in ('closed', 'cancelled') %}
+        <a class="btn btn-outline-primary" href="{{ url_for('customer.new_round', group_id=group.id) }}"><i class="bi bi-plus-lg"></i> Start a new round</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{% import "partials/macros.html" as ui %}
+{{ ui.sidebar([
+  ('vendor.dashboard', 'speedometer2', 'Dashboard'),
+  ('vendor.verification', 'patch-check', 'Business verification'),
+  ('vendor.catalogue', 'basket', 'Product catalogue'),
+  ('vendor.opportunities', 'megaphone', 'Available group orders'),
+  ('vendor.bids', 'file-earmark-text', 'My bids'),
+  ('vendor.awarded', 'trophy', 'Awarded orders'),
+  ('vendor.quality', 'clipboard-check', 'Quality records'),
+  ('vendor.deliveries', 'truck', 'Deliveries'),
+  ('vendor.finance', 'cash-stack', 'Financial summary'),
+  ('vendor.complaints', 'chat-left-dots', 'Complaints'),
+], request.endpoint) }}
+{% if current_user.vendor_profile %}
+<div class="small text-muted px-2">
+  <div class="fw-semibold text-body">{{ current_user.vendor_profile.business_name }}</div>
+  {{ ui.status(current_user.vendor_profile.status) }} {{ ui.platform_badge(current_user.vendor_profile.is_platform_owned) }}
+</div>
+{% endif %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Privacy Policy{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <h1 class="h2">Privacy Policy</h1>
+  <p class="text-muted small">This is a template policy for the first release. Have it reviewed by a qualified professional for your jurisdiction before launch.</p>
+  <h2 class="h5 mt-4">What we collect</h2>
+  <ul>
+    <li>Account details: name, email address, phone number and a securely hashed password.</li>
+    <li>Delivery addresses you save, and the address used for each order.</li>
+    <li>Group memberships, quantities ordered, payments, refunds, complaints, photos you upload and reviews.</li>
+    <li>For vendors: business details and verification documents.</li>
+    <li>Technical logs such as IP addresses for security and audit purposes.</li>
+  </ul>
+  <h2 class="h5 mt-4">How we use it</h2>
+  <p>To run buying groups, fulfil and deliver orders, verify payments, handle complaints and refunds, prevent fraud and meet legal obligations.</p>
+  <h2 class="h5 mt-4">Who can see it</h2>
+  <ul>
+    <li>Other group members see only your name — never your address, phone number or individual order.</li>
+    <li>The vendor awarded an order sees what it needs to fulfil it: quantities and, for home delivery, your delivery address and phone number.</li>
+    <li>Vendor documents, private bids, photos and addresses are never available through public links.</li>
+    <li>Administrators access data only to operate the service; sensitive actions are recorded in an audit log.</li>
+  </ul>
+  <h2 class="h5 mt-4">Your choices</h2>
+  <p>You can update your profile and addresses at any time. To request a copy or deletion of your data, <a href="{{ url_for('public.contact') }}">contact us</a>. Some records (orders, payments) must be kept for accounting purposes.</p>
+  <h2 class="h5 mt-4">Cookies</h2>
+  <p>We use only essential cookies for sign-in sessions and form security.</p>
+</div></div>
+{% endblock %}

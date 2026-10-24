@@ -1,0 +1,43 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}My bids{% endblock %}
+{% block vendor_content %}
+<h1 class="h3 mb-3">My bids</h1>
+{% if bids %}
+<div class="card"><div class="table-responsive">
+<table class="table mb-0">
+  <thead><tr><th>Group order</th><th>Status</th><th>Rev.</th><th class="text-end">Goods subtotal</th><th>Submitted</th><th>Valid until</th><th>Score</th><th></th></tr></thead>
+  <tbody>
+  {% for b in bids %}
+  {% set go = b.group_order %}
+  {% set open = go.status == 'bidding' and go.bidding_deadline and go.bidding_deadline > now %}
+  <tr>
+    <td><div class="fw-semibold">{{ go.title }}</div><div class="small text-muted">{{ go.group.name }} · {{ go.status|status_label }}</div></td>
+    <td>{{ ui.status(b.status) }}{% if b.eligibility_notes %}<div class="small text-danger">{{ b.eligibility_notes }}</div>{% endif %}</td>
+    <td>{{ b.revision }}</td>
+    <td class="text-end money">{{ b.subtotal|money(b.currency) }}</td>
+    <td class="small">{{ b.submitted_at|localdt }}</td>
+    <td class="small">{{ b.expires_at|localdt }}</td>
+    <td>{% if b.score is not none and not open %}{{ b.score }}{% else %}<span class="text-muted small">after close</span>{% endif %}</td>
+    <td class="text-nowrap">
+      {% if open and b.status in ('submitted', 'withdrawn') %}
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('vendor.bid', go_id=go.id) }}">{{ 'Revise' if b.status == 'submitted' else 'Resubmit' }}</a>
+      {% endif %}
+      {% if open and b.status == 'submitted' %}
+      <form method="post" action="{{ url_for('vendor.withdraw', bid_id=b.id) }}" class="d-inline" data-confirm="Withdraw this bid?">
+        {{ ui.csrf() }}<button class="btn btn-sm btn-outline-danger" type="submit">Withdraw</button>
+      </form>
+      {% endif %}
+      {% if b.status == 'awarded' %}<a class="btn btn-sm btn-primary" href="{{ url_for('vendor.awarded_detail', go_id=go.id) }}">Fulfil</a>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% else %}
+  {% call ui.empty('file-earmark-text', 'No bids yet', 'Find open group orders and submit a sealed offer.') %}
+    <a class="btn btn-primary btn-sm mt-2" href="{{ url_for('vendor.opportunities') }}">View opportunities</a>
+  {% endcall %}
+{% endif %}
+{% endblock %}

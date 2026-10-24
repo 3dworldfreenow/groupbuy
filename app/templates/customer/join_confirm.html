@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Join {{ group.name }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7 col-lg-6">
+    <div class="card">
+      <div class="card-body p-4">
+        <div class="small-label">You're invited to</div>
+        <h1 class="h3">{{ group.name }}</h1>
+        <div class="text-muted mb-2"><i class="bi bi-geo-alt"></i> {{ group.location.label }} · {{ group.active_members|length }} member(s) · organised by {{ group.organiser.full_name }}</div>
+        {% if group.description %}<p>{{ group.description }}</p>{% endif %}
+        {% set go = group.current_order %}
+        {% if go %}<p class="small">Current round: <strong>{{ go.title }}</strong> {{ ui.status(go.status, go.status_label) }}</p>{% endif %}
+        {% if member %}
+          <div class="alert alert-success">You are already a member.</div>
+          {% if go %}<a class="btn btn-primary" href="{{ url_for('customer.group_order', go_id=go.id) }}">Open group order</a>{% endif %}
+        {% elif not current_user.has_role('customer') %}
+          <div class="alert alert-warning">Only customer accounts can join buying groups.</div>
+        {% else %}
+          <form method="post">
+            {{ ui.csrf() }}
+            <button class="btn btn-primary btn-lg w-100" type="submit"><i class="bi bi-person-plus"></i> Join group</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

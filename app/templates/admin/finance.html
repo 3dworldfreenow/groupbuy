@@ -1,0 +1,57 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Financial reports{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Financial reports</h1>
+<div class="row g-3 mb-3">
+  <div class="col-md-6 col-xl-4">{{ ui.stat('Completed order value (GMV)', fin.gmv|money, 'receipt', 'What customers paid — not platform revenue.') }}</div>
+  <div class="col-md-6 col-xl-4">{{ ui.stat('Platform revenue', fin.platform_revenue|money, 'cash-coin', 'Commissions ' ~ (fin.commissions|money) ~ ' + service fees ' ~ (fin.service_fees|money) ~ ' − platform-borne refunds ' ~ (fin.refunds_platform|money)) }}</div>
+  <div class="col-md-6 col-xl-4">{{ ui.stat('Vendor payable', fin.vendor_payable_total|money, 'wallet2', 'Goods + delivery fees − vendor-borne refunds − commission. Pending: ' ~ (fin.vendor_payable_pending|money)) }}</div>
+  <div class="col-md-6 col-xl-4">{{ ui.stat('Founder-vendor margin', fin.founder_margin|money, 'building', 'Founder payable ' ~ (fin.founder_payable|money) ~ ' − purchase costs − spoilage') }}</div>
+  <div class="col-md-6 col-xl-4">{{ ui.stat('Estimated gross margin', fin.gross_margin|money, 'graph-up', 'Platform revenue + founder-vendor margin') }}</div>
+  <div class="col-md-6 col-xl-4">{{ ui.stat('Estimated operating profit', fin.operating_profit|money, 'piggy-bank', 'Gross margin − delivery, packaging and other operating costs') }}</div>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-5"><div class="card h-100"><div class="card-header">Costs and refunds</div><ul class="list-group list-group-flush">
+    {% for k, label in cost_categories.items() %}<li class="list-group-item d-flex justify-content-between"><span>{{ label }}</span><span class="money">{{ fin.costs[k]|money }}</span></li>{% endfor %}
+    <li class="list-group-item d-flex justify-content-between"><span>Refunds (vendor-borne)</span><span class="money">{{ fin.refunds_vendor|money }}</span></li>
+    <li class="list-group-item d-flex justify-content-between"><span>Refunds (platform-borne)</span><span class="money">{{ fin.refunds_platform|money }}</span></li>
+  </ul></div></div>
+  <div class="col-lg-7"><div class="card h-100"><div class="card-header">Record a cost</div><div class="card-body">
+    <form method="post" class="row g-2">{{ ui.csrf() }}
+      <div class="col-md-6"><label class="form-label small">Category</label><select class="form-select" name="category">{% for k, l in cost_categories.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><label class="form-label small">Amount</label><input class="form-control" type="number" step="0.01" min="0.01" name="amount" required></div>
+      <div class="col-md-3"><label class="form-label small">Date</label><input class="form-control" type="date" name="incurred_on"></div>
+      <div class="col-md-8"><label class="form-label small">Description</label><input class="form-control" name="description" required maxlength="300"></div>
+      <div class="col-md-4"><label class="form-label small">Group order # (optional)</label><input class="form-control" type="number" min="1" name="group_order_id"></div>
+      <div class="col-12 form-check ms-1"><input class="form-check-input" type="checkbox" name="founder" value="1" id="founder"><label class="form-check-label small" for="founder">Cost incurred by the founder-operated vendor (e.g. produce purchase)</label></div>
+      <div class="col-12"><button class="btn btn-primary" type="submit">Record cost</button></div>
+    </form>
+  </div></div></div>
+</div>
+<div class="card mb-3"><div class="card-header">CSV exports</div><div class="card-body d-flex flex-wrap gap-2">
+  {% for key, (label, _fn) in reports.items() %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.export_csv', name=key) }}"><i class="bi bi-download"></i> {{ label }}</a>{% endfor %}
+</div></div>
+<div class="card mb-3"><div class="card-header">Vendor settlements</div><div class="table-responsive"><table class="table mb-0">
+<thead><tr><th>#</th><th>Vendor</th><th>Order</th><th>Goods</th><th>Delivery</th><th>Refunds</th><th>Commission</th><th>Net payable</th><th>Status</th></tr></thead><tbody>
+{% for s in settlements %}
+<tr><td>{{ s.id }}</td><td class="small">{{ s.vendor.business_name }} {{ ui.platform_badge(s.vendor.is_platform_owned) }}</td><td><a href="{{ url_for('admin.group_order', go_id=s.group_order_id) }}">#{{ s.group_order_id }}</a></td>
+<td class="money">{{ s.goods_amount|money(s.currency) }}</td><td class="money">{{ s.delivery_fees|money(s.currency) }}</td><td class="money">{{ s.refunds_deducted|money(s.currency) }}</td><td class="money">{{ s.commission_amount|money(s.currency) }}</td><td class="money fw-bold">{{ s.net_payable|money(s.currency) }}</td>
+<td>{{ ui.status(s.status) }}{% if s.status == 'pending' %}
+  <form method="post" action="{{ url_for('admin.settlement_paid', settlement_id=s.id) }}" class="input-group input-group-sm mt-1" data-confirm="Mark this settlement as paid to the vendor?">{{ ui.csrf() }}<input class="form-control" name="reference" placeholder="Payment ref" required><button class="btn btn-outline-primary" type="submit">Paid</button></form>
+  {% else %}<div class="small text-muted">{{ s.reference }} · {{ s.paid_at|localdt }}</div>{% endif %}</td></tr>
+{% else %}<tr><td colspan="9">{{ ui.empty('wallet2', 'No settlements yet', 'Settlements are created when an order is closed.') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+<div class="row g-3">
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header">Commission statements</div><div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Order</th><th>Vendor</th><th>Base</th><th>Rate</th><th>Commission</th></tr></thead><tbody>
+    {% for c in commissions %}<tr><td>#{{ c.group_order_id }}</td><td class="small">{{ c.vendor.business_name }}</td><td class="money">{{ c.base_amount|money(c.currency) }}</td><td>{{ c.rate_percent }}%</td><td class="money">{{ c.amount|money(c.currency) }}</td></tr>
+    {% else %}<tr><td colspan="5" class="text-muted small">No commissions yet.</td></tr>{% endfor %}
+  </tbody></table></div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header">Cost records</div><div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Description</th></tr></thead><tbody>
+    {% for c in costs %}<tr><td class="small">{{ c.incurred_on }}</td><td class="small">{{ cost_categories.get(c.category) }}</td><td class="money">{{ c.amount|money(c.currency) }}</td><td class="small">{{ c.description }}{% if c.group_order_id %} · #{{ c.group_order_id }}{% endif %}{% if c.vendor_id %} · founder{% endif %}</td></tr>
+    {% else %}<tr><td colspan="4" class="text-muted small">No costs recorded.</td></tr>{% endfor %}
+  </tbody></table></div></div></div>
+</div>
+{% endblock %}

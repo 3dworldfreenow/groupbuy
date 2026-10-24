@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}My order · {{ go.title }}{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('customer.group_order', go_id=go.id) }}">{{ go.title }}</a></li>
+  <li class="breadcrumb-item active" aria-current="page">My order</li>
+</ol></nav>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">My order</h1>
+  {% if can_edit %}<span class="badge text-bg-success"><i class="bi bi-clock"></i> Editable · {{ go.order_deadline|timeleft }}</span>
+  {% else %}<span class="badge text-bg-secondary"><i class="bi bi-lock"></i> Quantities frozen</span>{% endif %}
+</div>
+
+{% set opts = go.fulfilment_options %}
+{% set method = (co.fulfilment_method if co else ('home' if opts == 'home' else 'pickup')) %}
+<form method="post" data-estimate-form data-currency="{{ currency_symbol }}">
+  {{ ui.csrf() }}
+  <div class="card mb-3">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr><th>Product</th><th>Indicative list price</th><th class="text-end">Group so far</th><th style="min-width:140px">Your quantity</th></tr></thead>
+        <tbody>
+        {% for i in go.items if not i.dropped %}
+          {% set p = i.product %}
+          {% set lohi = prices.get(p.id) %}
+          {% set total = agg.get(i.id, 0) %}
+          {% set mine_q = mine.get(i.id, 0) %}
+          {% set limits = [p.max_customer_qty, i.per_customer_max]|reject('none')|list %}
+          <tr>
+            <td><span class="fs-5">{{ p.emoji or '' }}</span> <strong>{{ p.name }}</strong>
+              <div class="small text-muted">Min {{ p.min_customer_qty|qty }} {{ p.unit }}, steps of {{ p.qty_step|qty }}{% if limits %}, max {{ limits|min|qty }} {{ p.unit }} per customer{% endif %}</div></td>
+            <td class="small">{% if lohi %}<span class="price-tag">{{ lohi[0]|money }}{% if lohi[1] != lohi[0] %}–{{ lohi[1]|money }}{% endif %}</span> / {{ p.unit }}{% else %}<span class="text-muted">No listing yet</span>{% endif %}</td>
+            <td class="text-end small">{{ total|qty }} / {{ i.target_qty|qty }} {{ p.unit }}
+              {% if i.max_qty is not none %}<div class="text-muted">{{ (i.max_qty - total + mine_q)|qty }} {{ p.unit }} available to you</div>{% endif %}</td>
+            <td>
+              {% if can_edit %}
+              <div class="input-group input-group-sm">
+                <input class="form-control" type="number" name="qty_{{ i.id }}" min="0" step="{{ p.qty_step|qty }}" value="{{ mine_q|qty if mine_q else '' }}" placeholder="0" data-qty-input data-price="{{ lohi[1] if lohi else 0 }}" aria-label="Quantity of {{ p.name }}">
+                <span class="input-group-text">{{ p.unit }}</span>
+              </div>
+              {% else %}<strong>{{ mine_q|qty }} {{ p.unit }}</strong>{% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4">{{ ui.empty("box", "No products in this round yet") }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer bg-white small text-muted">
+      Prices shown are <strong>indicative list prices — the final price is set by the accepted offer</strong> for the whole group, and you confirm it before paying.
+      {% if can_edit %}Estimate at the highest list price: <strong data-estimate-total>—</strong> (excludes delivery and fees).{% endif %}
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">Fulfilment</div>
+    <div class="card-body">
+      <div data-fulfilment-choice="#address-select" class="mb-2">
+        {% if opts in ('pickup', 'both') %}
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="fulfilment_method" id="fm_pickup" value="pickup" {% if method == 'pickup' %}checked{% endif %} {% if not can_edit %}disabled{% endif %}>
+          <label class="form-check-label" for="fm_pickup">Community pickup{% if go.pickup_point %} — {{ go.pickup_point.name }}, {{ go.pickup_point.address_text }}{% endif %}</label>
+        </div>
+        {% endif %}
+        {% if opts in ('home', 'both') %}
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="fulfilment_method" id="fm_home" value="home" {% if method == 'home' %}checked{% endif %} {% if not can_edit %}disabled{% endif %}>
+          <label class="form-check-label" for="fm_home">Home delivery (the vendor's home-delivery fee applies)</label>
+        </div>
+        {% endif %}
+      </div>
+      <div id="address-select" class="{{ '' if method == 'home' else 'd-none' }}">
+        {% if addresses %}
+          <label class="form-label small" for="address_id">Delivery address</label>
+          <select class="form-select" id="address_id" name="address_id" {% if not can_edit %}disabled{% endif %}>
+            {% for a in addresses %}<option value="{{ a.id }}" {% if (co and co.address_id == a.id) or (not (co and co.address_id) and a.is_default) %}selected{% endif %}>{{ a.label }}: {{ a.line1 }}, {{ a.city }}</option>{% endfor %}
+          </select>
+        {% else %}
+          <div class="alert alert-warning small mb-0">Add a delivery address in your <a href="{{ url_for('customer.address_form') }}">profile</a> to choose home delivery.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if can_edit %}
+    <button class="btn btn-primary btn-lg" type="submit" data-loading-text="Saving…"><i class="bi bi-check2"></i> Save my quantities</button>
+    <span class="small text-muted ms-2">Set a quantity to 0 to remove it.</span>
+  {% endif %}
+  <a class="btn btn-link" href="{{ url_for('customer.group_order', go_id=go.id) }}">Back to group order</a>
+</form>
+{% endblock %}

@@ -1,0 +1,52 @@
+{# Shared order-round fields. Requires `defaults`, `SelectionMode`, `FulfilmentOption`. #}
+<div class="row g-3">
+  <div class="col-12">
+    <label class="form-label" for="title">Order round title</label>
+    <input class="form-control" id="title" name="title" maxlength="160" value="{{ request.form.get('title', '') }}" placeholder="e.g. Weekend vegetables">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="order_deadline">Order deadline</label>
+    <input class="form-control" type="datetime-local" id="order_deadline" name="order_deadline" required value="{{ request.form.get('order_deadline') or defaults.order_deadline|dtinput }}">
+    <div class="form-text">Quantities freeze at this time.</div>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="delivery_window_start">Delivery window starts</label>
+    <input class="form-control" type="datetime-local" id="delivery_window_start" name="delivery_window_start" required value="{{ request.form.get('delivery_window_start') or defaults.window_start|dtinput }}">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="delivery_window_end">Delivery window ends</label>
+    <input class="form-control" type="datetime-local" id="delivery_window_end" name="delivery_window_end" required value="{{ request.form.get('delivery_window_end') or defaults.window_end|dtinput }}">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="fulfilment_options">Fulfilment</label>
+    <select class="form-select" id="fulfilment_options" name="fulfilment_options">
+      {% for key, label in FulfilmentOption.LABELS.items() %}
+        <option value="{{ key }}" {% if request.form.get('fulfilment_options', 'both') == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <div class="form-text">Pickup uses the group's community pickup point.</div>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="selection_mode">Award policy (disclosed to members)</label>
+    <select class="form-select" id="selection_mode" name="selection_mode">
+      {% for key, label in SelectionMode.LABELS.items() %}
+        <option value="{{ key }}" {% if (request.form.get('selection_mode') or defaults.selection_mode) == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-6">
+    <div class="form-check mt-md-4">
+      <input class="form-check-input" type="checkbox" id="allow_partial" name="allow_partial" value="1" {% if request.form.get('allow_partial') == '1' %}checked{% endif %}>
+      <label class="form-check-label" for="allow_partial">Allow partial fulfilment by vendors</label>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="min_fulfilment_percent">Minimum fulfilment per product (%)</label>
+    <input class="form-control" type="number" min="0" max="100" step="1" id="min_fulfilment_percent" name="min_fulfilment_percent" value="{{ request.form.get('min_fulfilment_percent', '80') }}">
+    <div class="form-text">Only used when partial fulfilment is allowed.</div>
+  </div>
+  <div class="col-12">
+    <label class="form-label" for="notes">Notes for members and vendors (optional)</label>
+    <textarea class="form-control" id="notes" name="notes" rows="2" maxlength="1000">{{ request.form.get('notes', '') }}</textarea>
+  </div>
+</div>

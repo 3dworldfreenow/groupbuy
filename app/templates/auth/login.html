@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-7 col-lg-5">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4 mb-3">Log in</h1>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      {{ ui.field(form.email) }}
+      {{ ui.field(form.password) }}
+      {{ ui.field(form.remember) }}
+      <button class="btn btn-primary w-100" type="submit" data-loading-text="Signing in…">Log in</button>
+    </form>
+    <hr>
+    <div class="small text-center">New here? <a href="{{ url_for('auth.register', next=request.args.get('next')) }}">Create a customer account</a> · <a href="{{ url_for('auth.vendor_register') }}">Apply as a vendor</a></div>
+  </div></div>
+</div></div>
+{% endblock %}

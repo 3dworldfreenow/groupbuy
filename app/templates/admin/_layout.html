@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <aside class="col-lg-3 col-xl-2 no-print">
+    <div class="small-label mb-2">Administration</div>
+    {% include "admin/_nav.html" %}
+  </aside>
+  <div class="col-lg-9 col-xl-10">
+    {% block admin_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

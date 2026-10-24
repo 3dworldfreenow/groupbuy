@@ -1,0 +1,26 @@
+{% extends "admin/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Complaints & refunds{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-3">Complaints and refunds</h1>
+<ul class="nav nav-pills mb-3">
+  {% for k, l in [('unresolved','Unresolved'),('resolved','Resolved'),('rejected','Rejected'),('all','All')] %}
+  <li class="nav-item"><a class="nav-link {% if status == k %}active{% endif %}" href="{{ url_for('admin.complaints', status=k) }}">{{ l }}</a></li>
+  {% endfor %}
+</ul>
+<div class="card mb-3"><div class="table-responsive"><table class="table mb-0">
+<thead><tr><th>#</th><th>Order</th><th>Type</th><th>Customer</th><th>Vendor</th><th>Status</th><th>Opened</th></tr></thead><tbody>
+{% for c in complaints %}
+<tr><td><a href="{{ url_for('admin.complaint_detail', complaint_id=c.id) }}">#{{ c.id }}</a></td><td>{{ c.customer_order.reference }}</td>
+<td class="small">{{ COMPLAINT_TYPES.get(c.complaint_type, c.complaint_type) }}{% if c.product %} · {{ c.product.name }}{% endif %}</td>
+<td class="small">{{ c.user.full_name }}</td><td class="small">{{ c.vendor.business_name if c.vendor else '—' }}</td>
+<td>{{ ui.status(c.status) }}</td><td class="small">{{ c.created_at|localdt }}</td></tr>
+{% else %}<tr><td colspan="7">{{ ui.empty('emoji-smile', 'No complaints in this list') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+<div class="card"><div class="card-header">Recent refunds</div><div class="table-responsive"><table class="table mb-0">
+<thead><tr><th>#</th><th>Order</th><th>Amount</th><th>Borne by</th><th>Reason</th><th>Processed</th></tr></thead><tbody>
+{% for r in refunds %}
+<tr><td>{{ r.id }}</td><td>{{ r.customer_order.reference }}</td><td class="money">{{ r.amount|money(r.currency) }}</td><td>{{ r.charged_to|capitalize }}</td><td class="small">{{ r.reason }}{% if r.reference %} · {{ r.reference }}{% endif %}</td><td class="small">{{ r.processed_at|localdt }}</td></tr>
+{% else %}<tr><td colspan="6">{{ ui.empty('arrow-counterclockwise', 'No refunds recorded') }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

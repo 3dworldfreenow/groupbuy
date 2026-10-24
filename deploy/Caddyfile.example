@@ -1,0 +1,13 @@
+# Example Caddy configuration (optional alternative to Nginx).
+# Caddy obtains and renews HTTPS certificates automatically.
+example.com {
+    encode gzip
+    request_body {
+        max_size 20MB
+    }
+    handle_path /static/* {
+        root * /opt/groupbuy/app/static
+        file_server
+    }
+    reverse_proxy 127.0.0.1:8000
+}

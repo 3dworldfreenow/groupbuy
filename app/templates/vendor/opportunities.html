@@ -1,0 +1,49 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Available group orders{% endblock %}
+{% block vendor_content %}
+<h1 class="h3 mb-1">Available group orders</h1>
+<p class="text-muted">Group orders frozen at their deadline and open for sealed offers in your service area.
+  Other vendors cannot see your bid, and you cannot see theirs.
+  {% if not multi_vendor %}<br><span class="badge text-bg-info">Stage 1</span> Multi-vendor bidding is off — only the platform-owned vendor can bid.{% endif %}</p>
+
+{% for go, existing in rows %}
+<div class="card card-hover mb-3">
+  <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between gap-2">
+      <div>
+        <h2 class="h5 mb-1">{{ go.title }}</h2>
+        <div class="small text-muted"><i class="bi bi-people"></i> {{ go.group.name }} · <i class="bi bi-geo-alt"></i> {{ go.group.location.label }}</div>
+      </div>
+      <div class="text-end">
+        <div class="fw-semibold text-danger"><i class="bi bi-clock"></i> {{ go.bidding_deadline|timeleft }}</div>
+        <div class="small text-muted">Bids close {{ go.bidding_deadline|localdt }}</div>
+      </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 my-2">
+      {% for i in go.items if not i.dropped %}
+      <span class="badge badge-soft">{{ i.product.emoji or '' }} {{ i.product.name }}: {{ i.frozen_qty|qty }} {{ i.product.unit }}{% if i.min_grade %} · min {{ i.min_grade.code }}{% endif %}</span>
+      {% endfor %}
+    </div>
+    <div class="row small text-muted g-1">
+      <div class="col-md-4"><i class="bi bi-truck"></i> Delivery {{ go.delivery_window_start|localdt('%d %b %H:%M') }} – {{ go.delivery_window_end|localdt('%H:%M') }}</div>
+      <div class="col-md-4"><i class="bi bi-pie-chart"></i> {% if go.allow_partial %}Partial allowed (min {{ go.min_fulfilment_percent|pct }} per item){% else %}Full quantities required{% endif %}</div>
+      <div class="col-md-4"><i class="bi bi-award"></i> {{ SelectionMode.LABELS.get(go.selection_mode) }}</div>
+    </div>
+    <div class="mt-3 d-flex gap-2 align-items-center">
+      {% if existing and existing.status == 'submitted' %}
+        <span>{{ ui.status(existing.status) }} <span class="small text-muted">revision {{ existing.revision }}</span></span>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('vendor.bid', go_id=go.id) }}">Revise bid</a>
+      {% elif existing %}
+        <span>{{ ui.status(existing.status) }}</span>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('vendor.bid', go_id=go.id) }}">Resubmit bid</a>
+      {% else %}
+        <a class="btn btn-primary btn-sm" href="{{ url_for('vendor.bid', go_id=go.id) }}"><i class="bi bi-send"></i> Submit sealed bid</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% else %}
+  {% call ui.empty('inbox', 'No open opportunities right now', 'You will be notified when a group order in your service area opens for offers.') %}{% endcall %}
+{% endfor %}
+{% endblock %}

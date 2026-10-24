@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Profile{% if current_user.has_role('customer') %} &amp; addresses{% endif %}</h1>
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header">Personal details</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('customer.profile') }}" novalidate>
+          {{ form.hidden_tag() }}
+          <div class="mb-3"><label class="form-label">Email</label><input class="form-control" value="{{ current_user.email }}" disabled></div>
+          {{ ui.field(form.full_name) }}
+          {{ ui.field(form.phone) }}
+          <button class="btn btn-primary" type="submit">Save</button>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">Change password</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('customer.change_password') }}" novalidate>
+          {{ pw_form.hidden_tag() }}
+          {{ ui.field(pw_form.current_password) }}
+          {{ ui.field(pw_form.new_password, "At least 10 characters, mixing letters with numbers or symbols.") }}
+          {{ ui.field(pw_form.confirm) }}
+          <button class="btn btn-outline-primary" type="submit">Change password</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% if current_user.has_role('customer') %}
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>Delivery addresses</span>
+        <a class="btn btn-sm btn-primary" href="{{ url_for('customer.address_form') }}"><i class="bi bi-plus-lg"></i> Add</a></div>
+      <ul class="list-group list-group-flush">
+        {% for a in current_user.addresses %}
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div class="small"><strong>{{ a.label }}</strong>{% if a.is_default %} <span class="badge badge-soft">Default</span>{% endif %}<br>{{ a.as_text() }}</div>
+              <div class="d-flex gap-1">
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('customer.address_form', address_id=a.id) }}" aria-label="Edit"><i class="bi bi-pencil"></i></a>
+                <form method="post" action="{{ url_for('customer.delete_address', address_id=a.id) }}" data-confirm="Delete this address?">
+                  {{ ui.csrf() }}<button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Delete"><i class="bi bi-trash"></i></button></form>
+              </div>
+            </div>
+          </li>
+        {% else %}
+          <li class="list-group-item">{{ ui.empty("house", "No addresses yet", "Add an address to choose home delivery.") }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <p class="small text-muted mt-2"><i class="bi bi-shield-lock"></i> Your addresses are private. Only the vendor delivering your order sees the address you choose for it.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

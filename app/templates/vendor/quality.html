@@ -1,0 +1,39 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Quality records{% endblock %}
+{% block vendor_content %}
+<h1 class="h3 mb-3">Quality records</h1>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">{{ ui.stat('Quality score', score ~ '/100', 'clipboard-check') }}</div>
+  <div class="col-6 col-md-3">{{ ui.stat('Inspection pass rate', (history.inspection_pass_rate * 100)|pct if history.inspection_pass_rate is not none else 'No data', 'check2-square', history.inspections ~ ' platform inspections') }}</div>
+  <div class="col-6 col-md-3">{{ ui.stat('On-time deliveries', (history.on_time_rate * 100)|pct if history.on_time_rate is not none else 'No data', 'clock-history', history.deliveries ~ ' delivered') }}</div>
+  <div class="col-6 col-md-3">{{ ui.stat('Customer rating', (history.avg_rating ~ '/5') if history.avg_rating is not none else 'No ratings', 'star', history.rating_count ~ ' verified reviews') }}</div>
+</div>
+<p class="small text-muted">Score = 50% platform inspection pass rate + 30% verified ratings + 20% low complaint rate. New vendors start from a neutral baseline. Complaints: {{ history.complaints }} · Award cancellations: {{ history.cancellations }}.</p>
+
+<div class="card mb-3">
+  <div class="card-header">Batches / lots</div>
+  <div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Lot</th><th>Product</th><th>Qty</th><th>Source / origin</th><th>Harvested</th><th>Order</th></tr></thead>
+    <tbody>
+    {% for b in batches %}
+    <tr><td>{{ b.lot_code }}</td><td>{{ b.product.name }}</td><td>{{ b.quantity|qty }} {{ b.product.unit }}</td>
+      <td class="small">{{ b.source_name or '—' }}{% if b.origin %} · {{ b.origin }}{% endif %}</td><td>{{ b.harvest_date or '—' }}</td>
+      <td>{% if b.group_order_id %}<a href="{{ url_for('vendor.awarded_detail', go_id=b.group_order_id) }}">#{{ b.group_order_id }}</a>{% else %}—{% endif %}</td></tr>
+    {% else %}<tr><td colspan="6" class="text-muted small">No batches recorded.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+
+<div class="card">
+  <div class="card-header">Inspections on your orders</div>
+  <div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Date</th><th>Order</th><th>Stage</th><th>Verification</th><th>Result</th><th>Notes</th></tr></thead>
+    <tbody>
+    {% for i in inspections %}
+    <tr><td class="small">{{ i.created_at|localdt }}</td><td><a href="{{ url_for('vendor.awarded_detail', go_id=i.group_order_id) }}">#{{ i.group_order_id }}</a></td>
+      <td class="small">{{ i.stage|replace('_', ' ') }}</td><td class="small">{{ Verification.LABELS.get(i.verification) }}</td>
+      <td>{{ ui.status(i.result) }}{% if i.placed_on_hold %} <span class="badge text-bg-danger">Hold</span>{% endif %}</td><td class="small">{{ i.defect_notes or '' }}</td></tr>
+    {% else %}<tr><td colspan="6" class="text-muted small">No inspections yet.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}

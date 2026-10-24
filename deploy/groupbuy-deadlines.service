@@ -1,0 +1,13 @@
+# /etc/systemd/system/groupbuy-deadlines.service
+# Freezes orders and closes bidding when deadlines pass (pages also do this lazily).
+[Unit]
+Description=FreshCircle deadline processing
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=groupbuy
+Group=groupbuy
+WorkingDirectory=/opt/groupbuy
+EnvironmentFile=/opt/groupbuy/.env
+ExecStart=/opt/groupbuy/.venv/bin/flask --app wsgi.py process-deadlines

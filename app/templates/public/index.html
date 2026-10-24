@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Fresh produce, bought together{% endblock %}
+{% block container_class %}py-4{% endblock %}
+{% block hero %}
+<section class="hero py-5 mb-2">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-7">
+        <span class="badge badge-soft mb-3"><i class="bi bi-people-fill"></i> Neighbourhood group buying</span>
+        <h1 class="display-5 mb-3">Pool your vegetable orders with neighbours. Get bulk quality, delivered.</h1>
+        <p class="lead text-muted mb-4">Create a buying group, add what your household needs, and let verified suppliers compete transparently to fulfil the combined order — with recorded quality checks on every delivery.</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% if current_user.is_authenticated and current_user.has_role('customer') %}
+            <a class="btn btn-primary btn-lg" href="{{ url_for('customer.create_group') }}"><i class="bi bi-plus-circle"></i> Start a group</a>
+            <a class="btn btn-outline-primary btn-lg" href="{{ url_for('customer.join_by_code') }}">Join with a code</a>
+          {% else %}
+            <a class="btn btn-primary btn-lg" href="{{ url_for('auth.register') }}">Create a free account</a>
+            <a class="btn btn-outline-primary btn-lg" href="{{ url_for('public.groups') }}">Browse groups</a>
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-lg-5 text-center">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="hero-emoji mb-2">🥔 🧅 🍅</div>
+            <div class="small-label">Example group order</div>
+            <table class="table table-sm mt-2 mb-1 text-start">
+              <tbody>
+                <tr><td>Potatoes</td><td class="text-end">100 kg</td></tr>
+                <tr><td>Onions</td><td class="text-end">60 kg</td></tr>
+                <tr><td>Tomatoes</td><td class="text-end">40 kg</td></tr>
+                <tr class="fw-bold"><td>Combined demand</td><td class="text-end">200 kg</td></tr>
+              </tbody>
+            </table>
+            <div class="small text-muted">Illustrative quantities. Prices are set by the vendor offer the group accepts.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block content %}
+<section class="my-4">
+  <div class="row g-3 text-center">
+    {% for icon, title, text in [
+      ('people', 'Create or join a group', 'Neighbours, apartment blocks and offices pool their weekly needs.'),
+      ('cart-plus', 'Add your quantities', 'Everyone adds what they need before the order deadline.'),
+      ('award', 'Compare sealed offers', 'Vendors bid on the combined order. Price is only one part of the score.'),
+      ('shield-check', 'Quality-checked delivery', 'Inspections, pickup or home delivery, and a clear complaint process.')] %}
+    <div class="col-6 col-lg-3">
+      <div class="card h-100"><div class="card-body">
+        <span class="stat-icon mb-2"><i class="bi bi-{{ icon }}"></i></span>
+        <div class="fw-semibold">{{ title }}</div>
+        <div class="small text-muted">{{ text }}</div>
+      </div></div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="my-5">
+  <div class="d-flex justify-content-between align-items-end mb-3">
+    <h2 class="h4 mb-0">Groups collecting orders now</h2>
+    <a href="{{ url_for('public.groups') }}">All groups <i class="bi bi-arrow-right"></i></a>
+  </div>
+  {% if open_groups %}
+  <div class="row g-3">
+    {% for go, prog in open_groups %}
+    <div class="col-md-4">
+      <a class="card card-hover h-100 text-decoration-none text-reset" href="{{ url_for('public.group_detail', group_id=go.group_id) }}">
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="fw-semibold">{{ go.group.name }}</span>{{ ui.status(go.status, go.status_label) }}
+          </div>
+          <div class="small text-muted mb-2"><i class="bi bi-geo-alt"></i> {{ go.group.location.label }} · closes {{ go.order_deadline|timeleft }}</div>
+          {{ ui.progress_bar(prog.percent) }}
+          <div class="small mt-1">{{ prog.total_qty|qty }} of {{ prog.total_target|qty }} {{ prog.units|join('/') }} target · {{ prog.buyers }} household{{ 's' if prog.buyers != 1 }}</div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    {% call ui.empty('people', 'No public groups are collecting orders right now.', 'Start one for your neighbourhood — it takes a minute.') %}{% endcall %}
+  {% endif %}
+</section>
+
+<section class="my-5">
+  <div class="d-flex justify-content-between align-items-end mb-3">
+    <h2 class="h4 mb-0">Fresh produce</h2>
+    <a href="{{ url_for('public.products') }}">Browse all <i class="bi bi-arrow-right"></i></a>
+  </div>
+  <div class="row g-3">
+    {% for p in products %}
+    <div class="col-6 col-md-3">
+      <div class="card h-100">
+        <div class="product-art" aria-hidden="true">{{ p.emoji or '🥬' }}</div>
+        <div class="card-body">
+          <div class="fw-semibold">{{ p.name }}</div>
+          {% set pr = prices.get(p.id) %}
+          {% if pr %}
+            <div class="price-tag">from {{ pr[0]|money }}<span class="small text-muted fw-normal"> / {{ p.unit }}</span></div>
+            <div class="small text-muted">Indicative vendor list price</div>
+          {% else %}
+            <div class="small text-muted">Priced by group offer · per {{ p.unit }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="my-5">
+  <div class="card bg-light border-0">
+    <div class="card-body p-4 d-md-flex align-items-center justify-content-between gap-3">
+      <div>
+        <h2 class="h5 mb-1">Supply fresh produce to community groups</h2>
+        <p class="mb-0 text-muted">Verified vendors receive consolidated, pre-committed orders. Bidding is sealed and award rules are published.</p>
+      </div>
+      <a class="btn btn-outline-primary mt-3 mt-md-0" href="{{ url_for('auth.vendor_register') }}">Apply as a vendor</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

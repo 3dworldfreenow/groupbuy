@@ -1,0 +1,68 @@
+{% extends "vendor/_layout.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Product catalogue{% endblock %}
+{% block vendor_content %}
+<h1 class="h3 mb-1">Product catalogue</h1>
+<p class="text-muted">Your list prices and quantity tiers prefill your bids. Final prices are always those in the bid you submit. Origin and organic information is <strong>vendor-declared</strong>.</p>
+
+<div class="card mb-4">
+  <div class="card-header">Add a listing</div>
+  <div class="card-body">
+    <form method="post" class="row g-2 align-items-end">
+      {{ ui.csrf() }}
+      <div class="col-md-3"><label class="form-label small">Product</label>
+        <select class="form-select" name="product_id" required>{% for p in products %}<option value="{{ p.id }}">{{ p.emoji or '' }} {{ p.name }} ({{ p.unit }})</option>{% endfor %}</select></div>
+      <div class="col-md-2"><label class="form-label small">Grade</label>
+        <select class="form-select" name="grade_id" required>{% for g in grades %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></div>
+      <div class="col-6 col-md-2"><label class="form-label small">Price / unit ({{ currency_symbol }})</label><input class="form-control" name="price_per_unit" inputmode="decimal" required></div>
+      <div class="col-6 col-md-2"><label class="form-label small">Stock</label><input class="form-control" name="stock_qty" inputmode="decimal" value="0"></div>
+      <div class="col-md-3"><label class="form-label small">Origin</label><input class="form-control" name="origin" maxlength="120" placeholder="e.g. Kolar district"></div>
+      <div class="col-md-9"><div class="form-check">
+        <input class="form-check-input" type="checkbox" name="declared_organic" value="1" id="new_org">
+        <label class="form-check-label small" for="new_org">Organic (vendor-declared — not shown as certified unless a certificate is verified)</label></div>
+        <input class="form-control form-control-sm mt-1" name="notes" maxlength="300" placeholder="Notes (optional)"></div>
+      <div class="col-md-3"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-plus-lg"></i> Add listing</button></div>
+    </form>
+  </div>
+</div>
+
+{% for vp in listings %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>{{ vp.product.emoji or '' }} {{ vp.product.name }} · {{ vp.grade.label }}</span>
+    <span>{% if vp.is_available %}<span class="badge text-bg-success">Available</span>{% else %}<span class="badge text-bg-secondary">Unavailable</span>{% endif %}
+      {% if vp.declared_organic %}<span class="badge badge-soft">Organic (vendor-declared)</span>{% endif %}</span>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('vendor.update_listing', listing_id=vp.id) }}" class="row g-2 align-items-end mb-3">
+      {{ ui.csrf() }}
+      <div class="col-6 col-md-2"><label class="form-label small">Price / {{ vp.product.unit }}</label><input class="form-control form-control-sm" name="price_per_unit" value="{{ vp.price_per_unit }}" required></div>
+      <div class="col-6 col-md-2"><label class="form-label small">Stock</label><input class="form-control form-control-sm" name="stock_qty" value="{{ vp.stock_qty|qty }}"></div>
+      <div class="col-md-3"><label class="form-label small">Origin</label><input class="form-control form-control-sm" name="origin" value="{{ vp.origin or '' }}" maxlength="120"></div>
+      <div class="col-6 col-md-2"><div class="form-check"><input class="form-check-input" type="checkbox" name="is_available" value="1" id="av{{ vp.id }}" {{ 'checked' if vp.is_available }}><label class="form-check-label small" for="av{{ vp.id }}">Available</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="declared_organic" value="1" id="og{{ vp.id }}" {{ 'checked' if vp.declared_organic }}><label class="form-check-label small" for="og{{ vp.id }}">Organic (declared)</label></div></div>
+      <div class="col-6 col-md-3"><button class="btn btn-sm btn-outline-primary w-100" type="submit">Update</button></div>
+    </form>
+    <div class="small-label mb-1">Quantity price tiers</div>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <span class="badge text-bg-light border">Base: {{ vp.price_per_unit|money }}/{{ vp.product.unit }}</span>
+      {% for t in vp.tiers %}
+      <form method="post" action="{{ url_for('vendor.delete_tier', tier_id=t.id) }}" class="d-inline" data-confirm="Remove this tier?" data-no-loading>
+        {{ ui.csrf() }}
+        <span class="badge badge-soft">≥ {{ t.min_qty|qty }} {{ vp.product.unit }}: {{ t.price_per_unit|money }}
+          <button class="btn btn-link btn-sm p-0 ms-1 text-danger" type="submit" aria-label="Remove tier"><i class="bi bi-x-circle"></i></button></span>
+      </form>
+      {% else %}<span class="small text-muted">No tiers.</span>{% endfor %}
+    </div>
+    <form method="post" action="{{ url_for('vendor.add_tier', listing_id=vp.id) }}" class="row g-2 align-items-end">
+      {{ ui.csrf() }}
+      <div class="col-5 col-md-3"><input class="form-control form-control-sm" name="min_qty" placeholder="Min group qty" required></div>
+      <div class="col-4 col-md-3"><input class="form-control form-control-sm" name="price_per_unit" placeholder="Tier price" required></div>
+      <div class="col-3 col-md-2"><button class="btn btn-sm btn-outline-primary w-100" type="submit">Add tier</button></div>
+    </form>
+  </div>
+</div>
+{% else %}
+  {% call ui.empty('basket', 'No listings yet', 'Add the produce you can supply, with prices and optional quantity tiers.') %}{% endcall %}
+{% endfor %}
+{% endblock %}

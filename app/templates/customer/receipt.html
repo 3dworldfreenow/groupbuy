@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block title %}Receipt {{ co.reference }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+  <a href="{{ url_for('customer.order_detail', order_id=co.id) }}">← Back to order</a>
+  <button type="button" class="btn btn-outline-primary" data-print><i class="bi bi-printer"></i> Print</button>
+</div>
+<div class="card mx-auto" style="max-width: 760px">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <div><div class="fw-bold text-primary fs-5"><i class="bi bi-basket2-fill"></i> {{ app_name }}</div>
+        <div class="small text-muted">Order receipt — not a tax invoice unless issued by the vendor</div></div>
+      <div class="text-end small"><div class="fw-semibold">{{ co.reference }}</div><div>{{ (co.confirmed_at or co.created_at)|localdt('%d %b %Y') }}</div>{{ ui.status(co.payment_status) }}</div>
+    </div>
+    <div class="row small mb-3">
+      <div class="col-6"><div class="small-label">Customer</div>{{ co.user.full_name }}<br>{{ co.user.email }}</div>
+      <div class="col-6"><div class="small-label">Supplied by</div>{% if go.awarded_bid %}{{ go.awarded_bid.vendor.business_name }}{% if go.awarded_bid.is_platform_owned %}<br><span class="text-muted">Platform-owned vendor</span>{% endif %}{% else %}—{% endif %}</div>
+    </div>
+    <div class="small mb-3"><div class="small-label">Group order</div>{{ go.title }} · {{ go.group.name }}<br>{{ co.delivery_address_snapshot or ('Community pickup' if co.fulfilment_method == 'pickup' else '') }}</div>
+    <table class="table table-sm">
+      <thead><tr><th>Item</th><th class="text-end">Quantity</th><th class="text-end">Unit price</th><th class="text-end">Amount</th></tr></thead>
+      <tbody>
+      {% for it in co.items %}
+        <tr><td>{{ it.product.name }}</td><td class="text-end">{{ (it.allocated_qty if it.allocated_qty is not none else it.quantity)|qty }} {{ it.product.unit }}</td>
+          <td class="text-end money">{{ it.unit_price|money(co.currency) if it.unit_price is not none else '—' }}</td>
+          <td class="text-end money">{{ it.line_total|money(co.currency) if it.line_total is not none else '—' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {{ ui.price_breakdown(co) }}
+    <table class="table table-sm mt-3 mb-0">
+      <tr><td>Paid (verified)</td><td class="text-end money">{{ paid|money(co.currency) }}</td></tr>
+      {% if refunded > 0 %}<tr><td>Refunded</td><td class="text-end money">−{{ refunded|money(co.currency) }}</td></tr>{% endif %}
+      <tr class="fw-bold"><td>Balance due</td><td class="text-end money">{{ outstanding|money(co.currency) }}</td></tr>
+    </table>
+  </div>
+</div>
+{% endblock %}
